@@ -1,0 +1,228 @@
+// Internal Learning Platform — data model.
+// Source: Notion "Data Structure" (Step 2) + PRD decisions DEC-001..DEC-059.
+// Enum-like columns are stored as strings; allowed values are listed in comments
+// and enforced in src/lib/types.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique // lower-case Google email, allowlist (DEC-012)
+  role         String // ADMIN | MEMBER (DEC-004)
+  status       String    @default("ACTIVE") // ACTIVE | LOCKED (DEC-028)
+  fullName     String? // from Google at first sign-in (DEC-031)
+  avatarUrl    String?
+  jobTitle     String // required (DEC-032)
+  employeeCode String    @unique // required, unique (DEC-032)
+  groupId      String? // members: required; admins: empty (DEC-027, DEC-029)
+  group        Group?    @relation(fields: [groupId], references: [id])
+  lastSignInAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  access            CourseAccess[]
+  attempts          Attempt[]
+  progress          LessonProgress[]
+  assignmentTargets AssignmentTarget[]
+}
+
+model Group {
+  id                String             @id @default(cuid())
+  name              String             @unique // DEC-036
+  createdAt         DateTime           @default(now())
+  users             User[]
+  access            CourseAccess[]
+  assignmentTargets AssignmentTarget[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique // DEC-043
+  createdAt DateTime @default(now())
+  courses   Course[]
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String   @unique // DEC-043
+  description String
+  coverImage  String // stored file name under data/uploads (DEC-039, DEC-045)
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  status      String   @default("DRAFT") // DRAFT | PUBLISHED (DEC-037)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+
+  lessons     Lesson[]
+  quizzes     Quiz[]
+  access      CourseAccess[]
+  assignments Assignment[]
+}
+
+// One row per member OR per group (exactly one of userId / groupId).
+model CourseAccess {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  groupId   String?
+  group     Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Lesson {
+  id              String   @id @default(cuid())
+  courseId        String
+  course          Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  position        Int
+  title           String // unique within course (DEC-052)
+  type            String // ARTICLE | VIDEO (DEC-024)
+  articleBody     String? // sanitized HTML (DEC-047)
+  videoUrl        String? // YouTube / Google Drive link (DEC-017, DEC-051)
+  transcript      String? // pasted by admin (DEC-050)
+  durationMinutes Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  progress    LessonProgress[]
+  quizSources QuizSourceLesson[]
+
+  @@unique([courseId, title])
+}
+
+model Quiz {
+  id               String    @id @default(cuid())
+  courseId         String
+  course           Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title            String
+  status           String    @default("DRAFT") // DRAFT | PUBLISHED
+  passScore        Int       @default(80) // percent
+  timeLimitMinutes Int       @default(15)
+  maxAttempts      Int       @default(3)
+  opensAt          DateTime?
+  closesAt         DateTime?
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  questions Question[]
+  sources   QuizSourceLesson[]
+  attempts  Attempt[]
+}
+
+model QuizSourceLesson {
+  quizId   String
+  quiz     Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@id([quizId, lessonId])
+}
+
+model Question {
+  id           String   @id @default(cuid())
+  quizId       String
+  quiz         Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  position     Int
+  text         String
+  options      String // JSON array of 4 strings
+  correctIndex Int
+  explanation  String?
+  origin       String   @default("AI") // AI
+  reviewStatus String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  edited       Boolean  @default(false) // edited by an admin before approval
+  aiCallId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  answers Answer[]
+}
+
+model Attempt {
+  id           String    @id @default(cuid())
+  quizId       String
+  quiz         Quiz      @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  number       Int
+  status       String    @default("IN_PROGRESS") // IN_PROGRESS | SUBMITTED
+  startedAt    DateTime  @default(now()) // server time
+  deadlineAt   DateTime
+  submittedAt  DateTime?
+  autoSubmitted Boolean  @default(false)
+  score        Int?
+  passed       Boolean?
+  correctCount Int?
+  totalCount   Int?
+
+  answers Answer[]
+}
+
+model Answer {
+  id            String   @id @default(cuid())
+  attemptId     String
+  attempt       Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedIndex Int
+  isCorrect     Boolean?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([attemptId, questionId])
+}
+
+model LessonProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  lessonId    String
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completedAt DateTime @default(now())
+
+  @@unique([userId, lessonId])
+}
+
+// Release 2 — a whole course assigned with a deadline (DEC-055).
+model Assignment {
+  id          String             @id @default(cuid())
+  courseId    String
+  course      Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  deadline    DateTime
+  createdById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  targets     AssignmentTarget[]
+}
+
+model AssignmentTarget {
+  id           String     @id @default(cuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  userId       String?
+  user         User?      @relation(fields: [userId], references: [id])
+  groupId      String?
+  group        Group?     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+model AiCallLog {
+  id            String   @id @default(cuid())
+  quizId        String?
+  model         String
+  promptVersion String
+  status        String // OK | ERROR | REFUSED
+  inputTokens   Int?
+  outputTokens  Int?
+  durationMs    Int
+  questionCount Int?
+  error         String?
+  createdAt     DateTime @default(now())
+}

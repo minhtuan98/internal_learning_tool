@@ -1,0 +1,38 @@
+:root {
+  --lh-bg: #f8fafc;
+  --lh-surface: #ffffff;
+  --lh-border: #dce3ed;
+  --lh-text: #17243a;
+  --lh-text-2: #58677d;
+  --lh-primary: #214e91;
+}
+:root[data-theme="dark"] {
+  --lh-bg: #0e1522;
+  --lh-surface: #152033;
+  --lh-border: #2a3a55;
+  --lh-text: #e6ecf5;
+  --lh-text-2: #a9b6ca;
+  --lh-primary: #7fa6e3;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--lh-bg); color: var(--lh-text); }
+body { font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; min-width: 1280px; }
+a { color: inherit; }
+
+/* Article content rendered from the rich-text editor */
+.lh-article { font-size: 16px; line-height: 1.75; color: var(--lh-text); }
+.lh-article h2 { font-size: 22px; margin: 28px 0 12px; }
+.lh-article h3 { font-size: 18px; margin: 24px 0 8px; }
+.lh-article img { max-width: 100%; border-radius: 8px; margin: 12px 0; }
+.lh-article blockquote { margin: 16px 0; padding: 8px 16px; border-left: 3px solid var(--lh-primary); color: var(--lh-text-2); }
+.lh-article a { color: var(--lh-primary); }
+
+/* TipTap editor surface */
+.lh-editor .ProseMirror { min-height: 360px; padding: 16px 20px; outline: none; }
+.lh-editor .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #9aa6b8; float: left; height: 0; pointer-events: none; }
+
+.lh-video { position: relative; width: 100%; padding-top: 56.25%; border-radius: 8px; overflow: hidden; background: #0b1220; }
+.lh-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+.lh-clickable { cursor: pointer; transition: box-shadow .15s; }
+.lh-clickable:hover { box-shadow: 0 4px 16px rgba(23, 36, 58, .08); }
