@@ -5,12 +5,8 @@ next-env.d.ts
 *.tsbuildinfo
 
 # secrets — copy learning-hub/.env.example to learning-hub/.env on each machine
-.env
-.env.local
 
 # local data (SQLite DB, uploaded files)
-learning-hub/data/
-learning-hub/prisma/*.db
 learning-hub/prisma/*.db-journal
 
 # OS / editor

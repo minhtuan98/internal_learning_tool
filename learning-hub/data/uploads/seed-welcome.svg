@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#206347"/><stop offset="1" stop-color="#3E8E6A"/></linearGradient></defs>
+<rect width="800" height="450" fill="url(#g)"/>
+<circle cx="660" cy="90" r="140" fill="#ffffff" fill-opacity="0.08"/><circle cx="120" cy="420" r="180" fill="#ffffff" fill-opacity="0.06"/>
+<text x="56" y="380" font-family="Inter, Segoe UI, Arial" font-size="44" font-weight="700" fill="#ffffff">Chào mừng đến Acme</text>
+<text x="56" y="80" font-family="Inter, Segoe UI, Arial" font-size="22" fill="#ffffff" fill-opacity="0.8">ACME · LEARNING HUB</text></svg>
