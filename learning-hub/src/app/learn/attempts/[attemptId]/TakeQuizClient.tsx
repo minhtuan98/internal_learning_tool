@@ -3,8 +3,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, App, Button, Card, Col, Flex, Modal, Progress, Radio, Row, Tag, Typography, theme } from "antd";
-import { CheckCircleOutlined, ClockCircleOutlined, CloudSyncOutlined, ExclamationCircleOutlined, SendOutlined } from "@ant-design/icons";
-import { saveAnswer, submitAttempt } from "@/server/member-actions";
+import { CheckCircleOutlined, ClockCircleOutlined, CloudSyncOutlined, ExclamationCircleOutlined, SafetyOutlined, SendOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
+import { attemptHeartbeat, reportViolation, saveAnswer, submitAttempt } from "@/server/member-actions";
+import type { ViolationType } from "@/lib/integrity";
+
+const VIOLATION_TEXT: Record<ViolationType, string> = {
+  TAB_HIDDEN: "Bạn vừa rời màn hình làm bài (chuyển tab hoặc thu nhỏ trình duyệt).",
+  WINDOW_BLUR: "Bạn vừa chuyển sang ứng dụng hoặc cửa sổ khác.",
+  COPY: "Không được sao chép nội dung bài thi.",
+  CONTEXT_MENU: "Không được dùng chuột phải trong bài thi.",
+  PRINT: "Không được in bài thi.",
+  PRINT_SCREEN: "Không được chụp màn hình bài thi.",
+};
+const AWAY_MS = 1500; // shorter absences (a notification stealing focus) are not counted
+
+/** Repeating diagonal watermark (name · employee code · time) so a shared screenshot points back to its author. */
+function Watermark({ text }: { text: string }) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="420" height="220"><text x="20" y="130" transform="rotate(-22 210 110)" font-family="Inter, Arial, sans-serif" font-size="15" fill="rgb(128,128,128)" fill-opacity="0.16">${text.replace(/[<>&"]/g, "")}</text></svg>`;
+  return <div aria-hidden className="lh-watermark" style={{ backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")` }} />;
+}
 
 const LETTERS = ["A", "B", "C", "D"];
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -14,14 +32,16 @@ export default function TakeQuizClient({
   quiz,
   questions,
   answers: initial,
+  integrity,
 }: {
-  attempt: { id: string; number: number; deadlineAt: string; serverNow: string };
+  attempt: { id: string; number: number; deadlineAt: string; serverNow: string; violations: number };
+  integrity: { maxViolations: number; viewer: string };
   quiz: { id: string; title: string; maxAttempts: number; course: string };
   questions: { id: string; text: string; options: string[] }[];
   answers: Record<string, number>;
 }) {
   const router = useRouter();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { token } = theme.useToken();
   const [answers, setAnswers] = useState<Record<string, number>>(initial);
   const [save, setSave] = useState<SaveState>("idle");
@@ -50,6 +70,115 @@ export default function TakeQuizClient({
     },
     [attempt.id, message, router],
   );
+
+  // ---------- Anti-cheat (DESIGN_SYSTEM.md → Quiz integrity) ----------
+  const [violations, setViolations] = useState(attempt.violations);
+  const [warn, setWarn] = useState<{ type: ViolationType; count: number; max: number } | null>(null);
+  const lastReport = useRef<Partial<Record<ViolationType, number>>>({});
+  const resultUrl = `/learn/attempts/${attempt.id}/result`;
+  const report = useCallback(
+    async (type: ViolationType, durationMs?: number) => {
+      if (submitted.current) return;
+      const now = Date.now();
+      if (now - (lastReport.current[type] ?? 0) < 2000) return; // one key held down = one violation
+      lastReport.current[type] = now;
+      const r = await reportViolation(attempt.id, type, durationMs);
+      if (!r.ok || !r.data) return;
+      setViolations(r.data.count);
+      if (r.data.voided) {
+        submitted.current = true;
+        setWarn(null);
+        modal.error({
+          title: "Lượt thi đã bị hủy",
+          content: `Bạn đã vi phạm ${r.data.count} lần, vượt quá ${r.data.max} lần cho phép. Lượt này tính 0 điểm và vẫn tính là một lượt đã dùng.`,
+          okText: "Xem kết quả",
+          onOk: () => router.replace(resultUrl),
+        });
+      } else setWarn({ type, count: r.data.count, max: r.data.max });
+    },
+    [attempt.id, modal, router, resultUrl],
+  );
+
+  // Leaving the quiz: tab hidden / window blurred, counted on return when away ≥ 1.5 s
+  useEffect(() => {
+    let leftAt: number | null = null;
+    let kind: ViolationType = "WINDOW_BLUR";
+    const leave = (k: ViolationType) => {
+      if (leftAt === null) {
+        leftAt = Date.now();
+        kind = k;
+      } else if (k === "TAB_HIDDEN") kind = k;
+    };
+    const back = () => {
+      if (leftAt === null) return;
+      const away = Date.now() - leftAt;
+      leftAt = null;
+      if (away >= AWAY_MS) report(kind, away);
+    };
+    const onVisibility = () => (document.hidden ? leave("TAB_HIDDEN") : back());
+    const onBlur = () => leave(document.hidden ? "TAB_HIDDEN" : "WINDOW_BLUR");
+    const onFocus = () => !document.hidden && back();
+    // Copy / right-click / print / Print Screen: blocked where the browser allows it, always logged
+    const block = (type: ViolationType) => (e: Event) => {
+      e.preventDefault();
+      report(type);
+    };
+    const onCopy = block("COPY");
+    const onMenu = block("CONTEXT_MENU");
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        report("PRINT");
+      }
+      if (e.key === "PrintScreen") report("PRINT_SCREEN");
+    };
+    const onPrint = () => report("PRINT");
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("copy", onCopy);
+    document.addEventListener("cut", onCopy);
+    document.addEventListener("contextmenu", onMenu);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    window.addEventListener("beforeprint", onPrint);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("copy", onCopy);
+      document.removeEventListener("cut", onCopy);
+      document.removeEventListener("contextmenu", onMenu);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      window.removeEventListener("beforeprint", onPrint);
+    };
+  }, [report]);
+
+  // Heartbeat with a per-tab token: a second tab/device on the same attempt is flagged for admins
+  useEffect(() => {
+    const key = `lh-attempt-tab-${attempt.id}`;
+    let tabToken = "";
+    try {
+      tabToken = sessionStorage.getItem(key) ?? "";
+      if (!tabToken) sessionStorage.setItem(key, (tabToken = crypto.randomUUID()));
+    } catch {
+      tabToken = crypto.randomUUID();
+    }
+    const ping = async () => {
+      const r = await attemptHeartbeat(attempt.id, tabToken);
+      if (r.ok && r.data?.status === "SUBMITTED" && !submitted.current) router.replace(resultUrl); // ended elsewhere
+    };
+    ping();
+    const t = setInterval(ping, 30_000);
+    return () => clearInterval(t);
+  }, [attempt.id, router, resultUrl]);
+
+  const [stamp, setStamp] = useState(() => dayjs().format("HH:mm DD/MM/YYYY"));
+  useEffect(() => {
+    const t = setInterval(() => setStamp(dayjs().format("HH:mm DD/MM/YYYY")), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -86,6 +215,9 @@ export default function TakeQuizClient({
           <Typography.Title level={3} style={{ margin: 0 }}>{quiz.title}</Typography.Title>
         </div>
         <Flex gap={12} align="center">
+          <Tag icon={<SafetyOutlined />} color={violations > 0 ? "warning" : "default"}>
+            Vi phạm {violations} / {integrity.maxViolations}
+          </Tag>
           <Tag icon={save === "saving" ? <CloudSyncOutlined spin /> : save === "error" ? <ExclamationCircleOutlined /> : <CheckCircleOutlined />} color={save === "error" ? "error" : "default"}>
             {save === "saving" ? "Đang lưu…" : save === "error" ? "Chưa lưu được" : save === "saved" ? "Đã lưu tự động" : "Câu trả lời được lưu tự động"}
           </Tag>
@@ -99,7 +231,8 @@ export default function TakeQuizClient({
       </Flex>
       {timeUp && <Alert type="warning" showIcon title="Đã hết giờ. Bài làm đang được nộp tự động với các câu đã trả lời." style={{ marginBottom: 16 }} />}
       {urgent && !timeUp && <Alert type="error" showIcon title="Còn dưới 1 phút. Hết giờ bài sẽ tự nộp." style={{ marginBottom: 16 }} />}
-      <Row gutter={24}>
+      <Watermark text={`${integrity.viewer} · ${stamp}`} />
+      <Row gutter={24} className="lh-noselect">
         <Col span={17}>
           <Flex vertical gap={16}>
             {questions.map((q, i) => (
@@ -139,6 +272,27 @@ export default function TakeQuizClient({
           </Card>
         </Col>
       </Row>
+      <Modal
+        open={!!warn}
+        title={warn ? `Cảnh báo vi phạm ${warn.count} / ${warn.max}` : ""}
+        okText="Tôi đã hiểu, làm tiếp"
+        cancelButtonProps={{ style: { display: "none" } }}
+        onOk={() => setWarn(null)}
+        onCancel={() => setWarn(null)}
+      >
+        {warn && (
+          <Alert
+            type={warn.count >= warn.max ? "error" : "warning"}
+            showIcon
+            title={VIOLATION_TEXT[warn.type]}
+            description={
+              warn.count >= warn.max
+                ? "Đây là lần cuối được phép. Vi phạm thêm một lần nữa, lượt thi sẽ bị hủy và tính 0 điểm."
+                : `Vượt quá ${warn.max} lần, lượt thi sẽ bị hủy và tính 0 điểm. Quản trị viên xem được nhật ký vi phạm.`
+            }
+          />
+        )}
+      </Modal>
       <Modal
         open={confirm}
         title="Nộp bài?"

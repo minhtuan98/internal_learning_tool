@@ -159,7 +159,7 @@ export async function quizResults(filter: { courseId?: string; quizId?: string; 
     include: { user: { include: { group: true } }, quiz: { include: { course: true } } },
     orderBy: { submittedAt: "desc" },
   });
-  const rows = new Map<string, { key: string; userId: string; name: string; email: string; group: string | null; quizId: string; quiz: string; course: string; used: number; max: number; best: number; passed: boolean; last: Date | null; attempts: { number: number; submittedAt: Date | null; startedAt: Date; score: number | null; passed: boolean | null; auto: boolean }[] }>();
+  const rows = new Map<string, { key: string; userId: string; name: string; email: string; group: string | null; quizId: string; quiz: string; course: string; used: number; max: number; best: number; passed: boolean; last: Date | null; attempts: { number: number; submittedAt: Date | null; startedAt: Date; score: number | null; passed: boolean | null; auto: boolean; voided: boolean; violations: number }[] }>();
   for (const a of attempts) {
     const key = `${a.userId}:${a.quizId}`;
     const cur = rows.get(key) ?? {
@@ -181,7 +181,7 @@ export async function quizResults(filter: { courseId?: string; quizId?: string; 
     cur.used++;
     cur.best = Math.max(cur.best, a.score ?? 0);
     cur.passed = cur.passed || Boolean(a.passed);
-    cur.attempts.push({ number: a.number, submittedAt: a.submittedAt, startedAt: a.startedAt, score: a.score, passed: a.passed, auto: a.autoSubmitted });
+    cur.attempts.push({ number: a.number, submittedAt: a.submittedAt, startedAt: a.startedAt, score: a.score, passed: a.passed, auto: a.autoSubmitted, voided: a.voided, violations: a.violations });
     rows.set(key, cur);
   }
   return [...rows.values()];

@@ -115,6 +115,7 @@ model Quiz {
   opensAt          DateTime?
   closesAt         DateTime?
   publishedAt      DateTime?
+  reviewReleased   Boolean   @default(false) // admin lets members see right/wrong per question (anti-cheat)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -167,8 +168,32 @@ model Attempt {
   passed       Boolean?
   correctCount Int?
   totalCount   Int?
+  // Anti-cheat (DESIGN_SYSTEM.md → Quiz integrity)
+  questionOrder String? // JSON: question ids in the order this attempt shows them
+  optionOrders  String? // JSON: { questionId: [original option index for display slot 0..3] }
+  violations    Int     @default(0) // tab/app leaves, copy, right-click, print, print-screen
+  voided        Boolean @default(false) // over the admin threshold → 0 points, attempt used
+  ip            String? // network at start (for "same network" flags)
+  sessionToken  String? // first browser tab that opened the attempt
 
   answers Answer[]
+  events  AttemptEvent[]
+}
+
+// Anti-cheat log: every violation and every flag-worthy signal during an attempt.
+model AttemptEvent {
+  id         String   @id @default(cuid())
+  attemptId  String
+  attempt    Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  type       String // TAB_HIDDEN | WINDOW_BLUR | COPY | CONTEXT_MENU | PRINT | PRINT_SCREEN | MULTI_SESSION | VOIDED
+  violation  Boolean  @default(true) // false = signal only (flag), not counted
+  durationMs Int?
+  detail     String? // e.g. the other tab token for MULTI_SESSION
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([attemptId])
 }
 
 model Answer {

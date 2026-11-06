@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { requireMember } from "@/lib/auth";
 import { finalizeExpiredAttempts } from "@/lib/quiz";
 import { parseOptions } from "@/lib/types";
+import { getMaxViolations, orderForAttempt, toDisplaySlot } from "@/lib/integrity";
+import { displayName } from "@/lib/format";
 import TakeQuizClient from "./TakeQuizClient";
 
 export default async function TakeQuizPage({ params }: { params: Promise<{ attemptId: string }> }) {
@@ -15,13 +17,15 @@ export default async function TakeQuizPage({ params }: { params: Promise<{ attem
   });
   if (!a || a.userId !== user.id) notFound();
   if (a.status === "SUBMITTED") redirect(`/learn/attempts/${a.id}/result`);
+  const maxViolations = await getMaxViolations();
   return (
     <TakeQuizClient
-      attempt={{ id: a.id, number: a.number, deadlineAt: a.deadlineAt.toISOString(), serverNow: new Date().toISOString() }}
+      attempt={{ id: a.id, number: a.number, deadlineAt: a.deadlineAt.toISOString(), serverNow: new Date().toISOString(), violations: a.violations }}
       quiz={{ id: a.quiz.id, title: a.quiz.title, maxAttempts: a.quiz.maxAttempts, course: a.quiz.course.title }}
-      // Correct answers are never sent to the browser.
-      questions={a.quiz.questions.map((q) => ({ id: q.id, text: q.text, options: parseOptions(q.options) }))}
-      answers={Object.fromEntries(a.answers.map((x) => [x.questionId, x.selectedIndex]))}
+      // Correct answers are never sent to the browser. Questions and options come in this attempt's own order.
+      questions={orderForAttempt(a, a.quiz.questions.map((q) => ({ id: q.id, text: q.text, options: parseOptions(q.options) })))}
+      answers={Object.fromEntries(a.answers.map((x) => [x.questionId, toDisplaySlot(a, x.questionId, x.selectedIndex)]))}
+      integrity={{ maxViolations, viewer: `${displayName(user)} · ${user.employeeCode}` }}
     />
   );
 }

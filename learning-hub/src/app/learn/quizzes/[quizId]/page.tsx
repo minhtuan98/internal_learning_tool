@@ -4,6 +4,7 @@ import { requireMember } from "@/lib/auth";
 import { checkCanStart } from "@/lib/quiz";
 import NoAccess from "@/components/NoAccess";
 import { courseGuard } from "../../courses/[id]/guard";
+import { getMaxViolations } from "@/lib/integrity";
 import QuizIntroClient from "./QuizIntroClient";
 
 export default async function QuizIntroPage({ params }: { params: Promise<{ quizId: string }> }) {
@@ -14,7 +15,7 @@ export default async function QuizIntroPage({ params }: { params: Promise<{ quiz
   const g = await courseGuard(user, quiz.courseId);
   if (!g.ok) return <NoAccess assigned={g.assigned} />;
   const check = await checkCanStart(user, quizId);
-  const attempts = await prisma.attempt.findMany({ where: { userId: user.id, quizId }, orderBy: { number: "desc" } });
+  const [attempts, maxViolations] = await Promise.all([prisma.attempt.findMany({ where: { userId: user.id, quizId }, orderBy: { number: "desc" } }), getMaxViolations()]);
   return (
     <QuizIntroClient
       course={{ id: g.course.id, title: g.course.title }}
@@ -22,7 +23,8 @@ export default async function QuizIntroPage({ params }: { params: Promise<{ quiz
       check={check.ok ? { ok: true, resume: Boolean(check.inProgressId) } : { ok: false, reason: check.reason }}
       deadline={g.lock.activeDeadline ?? g.lock.deadline}
       locked={g.lock.locked}
-      attempts={attempts.map((a) => ({ id: a.id, number: a.number, status: a.status, score: a.score, passed: a.passed, submittedAt: a.submittedAt, auto: a.autoSubmitted }))}
+      maxViolations={maxViolations}
+      attempts={attempts.map((a) => ({ id: a.id, number: a.number, status: a.status, score: a.score, passed: a.passed, submittedAt: a.submittedAt, auto: a.autoSubmitted, voided: a.voided }))}
     />
   );
 }

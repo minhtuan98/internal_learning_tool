@@ -7,6 +7,7 @@ import { ClearOutlined } from "@ant-design/icons";
 import { FootNote, PageHeader, PassTag } from "@/components/ui";
 import { fmtDateTime, fmtDuration } from "@/lib/format";
 import type { learningProgress, quizResults } from "@/lib/stats";
+import IntegrityPanel from "./IntegrityPanel";
 
 type QuizRow = Awaited<ReturnType<typeof quizResults>>[number];
 type ProgRow = Awaited<ReturnType<typeof learningProgress>>[number];
@@ -19,14 +20,16 @@ export default function ResultsClient({
   groups,
   quizRows,
   progressRows,
+  integrity,
 }: {
-  tab: "quiz" | "progress";
+  tab: "quiz" | "progress" | "integrity";
   filter: { course: string | null; quiz: string | null; group: string | null };
   courses: { id: string; title: string }[];
   quizzes: { id: string; title: string }[];
   groups: { id: string; name: string }[];
   quizRows: QuizRow[];
   progressRows: ProgRow[];
+  integrity: React.ComponentProps<typeof IntegrityPanel>["data"] | null;
 }) {
   const router = useRouter();
   const { token } = theme.useToken();
@@ -35,7 +38,7 @@ export default function ResultsClient({
   const go = (next: Partial<typeof filter> & { tab?: string }) => {
     const v = { ...filter, tab, ...next };
     const sp = new URLSearchParams();
-    if (v.tab === "progress") sp.set("tab", "progress");
+    if (v.tab && v.tab !== "quiz") sp.set("tab", v.tab);
     if (v.course) sp.set("course", v.course);
     if (v.quiz && v.tab !== "progress") sp.set("quiz", v.quiz);
     if (v.group) sp.set("group", v.group);
@@ -46,7 +49,7 @@ export default function ResultsClient({
   const filters = (
     <Flex gap={12} style={{ marginBottom: 16 }}>
       <Select allowClear placeholder="Tất cả khóa học" style={{ width: 240 }} value={filter.course} onChange={(v) => go({ course: v ?? null, quiz: null })} options={courses.map((c) => ({ value: c.id, label: c.title }))} />
-      {tab === "quiz" && <Select allowClear placeholder="Tất cả quiz" style={{ width: 240 }} value={filter.quiz} onChange={(v) => go({ quiz: v ?? null })} options={quizzes.map((q) => ({ value: q.id, label: q.title }))} />}
+      {tab !== "progress" && <Select allowClear placeholder="Tất cả quiz" style={{ width: 240 }} value={filter.quiz} onChange={(v) => go({ quiz: v ?? null })} options={quizzes.map((q) => ({ value: q.id, label: q.title }))} />}
       <Select allowClear placeholder="Tất cả nhóm" style={{ width: 180 }} value={filter.group} onChange={(v) => go({ group: v ?? null })} options={groups.map((g) => ({ value: g.id, label: g.name }))} />
       {filtered && <Button icon={<ClearOutlined />} onClick={() => go({ course: null, quiz: null, group: null })}>Xóa bộ lọc</Button>}
     </Flex>
@@ -84,6 +87,11 @@ export default function ResultsClient({
                 <FootNote>Cột điểm hiển thị điểm cao nhất. Bấm vào một dòng để xem lịch sử lượt làm (không hiển thị đáp án).</FootNote>
               </>
             ),
+          },
+          {
+            key: "integrity",
+            label: "Giám sát thi",
+            children: integrity ? <IntegrityPanel data={integrity} filters={filters} loading={pending} /> : null,
           },
           {
             key: "progress",
@@ -147,7 +155,7 @@ export default function ResultsClient({
                     </Typography.Text>
                   </div>
                   <Flex vertical align="flex-end" gap={4}>
-                    <Typography.Text strong>{a.score}%</Typography.Text>
+                    {a.voided ? <Tag color="error">Bị hủy · 0%</Tag> : <Typography.Text strong>{a.score}%</Typography.Text>}
                     <PassTag passed={a.passed} />
                   </Flex>
                 </Flex>

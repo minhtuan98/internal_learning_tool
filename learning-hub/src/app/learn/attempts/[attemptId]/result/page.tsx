@@ -6,6 +6,8 @@ import { requireMember } from "@/lib/auth";
 import { checkCanStart, finalizeExpiredAttempts } from "@/lib/quiz";
 import { fmtDateTime, fmtDuration } from "@/lib/format";
 import { FootNote, PageHeader, Text } from "@/components/ui";
+import { getMaxViolations, readQuestionOrder } from "@/lib/integrity";
+import { LockOutlined } from "@/components/icons";
 
 /** Score and pass / fail (PRD scope 10). Correct answers are not revealed so retakes stay meaningful. */
 export default async function ResultPage({ params }: { params: Promise<{ attemptId: string }> }) {
@@ -20,6 +22,11 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
   if (a.status !== "SUBMITTED") redirect(`/learn/attempts/${a.id}`);
   const check = await checkCanStart(user, a.quizId);
   const answers = new Map(a.answers.map((x) => [x.questionId, x]));
+  // Anti-cheat: right/wrong per question only once an admin releases it for this quiz; shown in this attempt's order
+  const released = a.quiz.reviewReleased;
+  const rank = new Map(readQuestionOrder(a).map((id, i) => [id, i]));
+  const ordered = [...a.quiz.questions].sort((x, y) => (rank.get(x.id) ?? 1e6) - (rank.get(y.id) ?? 1e6));
+  const maxViolations = a.voided ? await getMaxViolations() : 0;
   const cert = a.passed ? await prisma.certificate.findUnique({ where: { userId_courseId: { userId: user.id, courseId: a.quiz.courseId } }, select: { id: true } }) : null;
 
   return (
@@ -32,14 +39,15 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
         <Col span={10}>
           <Card>
             <Result
-              status={a.passed ? "success" : "warning"}
-              title={a.passed ? "Bạn đã đạt!" : "Chưa đạt lần này"}
+              status={a.voided ? "error" : a.passed ? "success" : "warning"}
+              title={a.voided ? "Lượt thi bị hủy" : a.passed ? "Bạn đã đạt!" : "Chưa đạt lần này"}
               subTitle={
                 <>
                   <div style={{ fontSize: 40, fontWeight: 700, margin: "8px 0" }}>{a.score}%</div>
                   <div>{a.correctCount} / {a.totalCount} câu đúng · Điểm đạt {a.quiz.passScore}%</div>
                   <div>Lượt {a.number} / {a.quiz.maxAttempts} · Nộp lúc {fmtDateTime(a.submittedAt)} · {fmtDuration((a.submittedAt?.getTime() ?? 0) - a.startedAt.getTime())}</div>
                   {a.autoSubmitted && <Tag style={{ marginTop: 8 }}>Tự nộp khi hết giờ</Tag>}
+                  {a.voided && <div style={{ marginTop: 8 }}><Tag color="error">Vi phạm {a.violations} lần, vượt quá {maxViolations} lần cho phép · tính 0 điểm</Tag></div>}
                   {cert && <div style={{ marginTop: 8 }}><Tag color="success">Đã hoàn thành khóa học · Đã nhận chứng chỉ</Tag></div>}
                 </>
               }
@@ -54,24 +62,34 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
           </Card>
         </Col>
         <Col span={14}>
-          <Card title="Từng câu">
-            <Flex vertical gap={10}>
-              {a.quiz.questions.map((q, i) => {
-                const ans = answers.get(q.id);
-                const icon = !ans ? <MinusCircleOutlined style={{ color: "var(--ant-color-text-tertiary)" }} /> : ans.isCorrect ? <CheckCircleFilled style={{ color: "var(--ant-color-success)" }} /> : <CloseCircleFilled style={{ color: "var(--ant-color-error)" }} />;
-                return (
-                  <Flex key={q.id} gap={10} align="flex-start">
-                    <span style={{ marginTop: 2 }}>{icon}</span>
-                    <div>
-                      <Text>Câu {i + 1}. {q.text}</Text>
-                      <br />
-                      <Text type="secondary" style={{ fontSize: 12 }}>{!ans ? "Chưa trả lời" : ans.isCorrect ? "Đúng" : "Sai"}</Text>
-                    </div>
-                  </Flex>
-                );
-              })}
-            </Flex>
-          </Card>
+          {released ? (
+            <Card title="Từng câu">
+              <Flex vertical gap={10}>
+                {ordered.map((q, i) => {
+                  const ans = answers.get(q.id);
+                  const icon = !ans ? <MinusCircleOutlined style={{ color: "var(--ant-color-text-tertiary)" }} /> : ans.isCorrect ? <CheckCircleFilled style={{ color: "var(--ant-color-success)" }} /> : <CloseCircleFilled style={{ color: "var(--ant-color-error)" }} />;
+                  return (
+                    <Flex key={q.id} gap={10} align="flex-start">
+                      <span style={{ marginTop: 2 }}>{icon}</span>
+                      <div>
+                        <Text>Câu {i + 1}. {q.text}</Text>
+                        <br />
+                        <Text type="secondary" style={{ fontSize: 12 }}>{!ans ? "Chưa trả lời" : ans.isCorrect ? "Đúng" : "Sai"}</Text>
+                      </div>
+                    </Flex>
+                  );
+                })}
+              </Flex>
+            </Card>
+          ) : (
+            <Card title="Từng câu">
+              <Result
+                icon={<LockOutlined style={{ color: "var(--ant-color-text-tertiary)" }} />}
+                title="Chi tiết đúng/sai đang khóa"
+                subTitle="Quản trị viên sẽ mở phần xem chi tiết từng câu khi kết thúc đợt thi. Bạn vẫn thấy điểm tổng và số câu đúng."
+              />
+            </Card>
+          )}
         </Col>
       </Row>
       <FootNote>Đáp án đúng không được hiển thị để các lượt làm lại vẫn có ý nghĩa. Ôn lại bài học trước khi làm lại.</FootNote>

@@ -76,6 +76,21 @@ Issued automatically, once per member per course, when the course is complete (a
 - `/certificates/[id]`: full sheet (owner or admin only), **In / Lưu PDF** prints one A4 landscape page.
 - The sheet is a CSS size container (`cqw` units), so thumbnails, page and print share one layout.
 
+## Quiz integrity (anti-cheat, decided 2026-11-06)
+
+Code: `src/lib/integrity.ts`, `reportViolation` / `attemptHeartbeat` in `src/server/member-actions.ts`, `TakeQuizClient.tsx`, admin **Kết quả → Giám sát thi** (`IntegrityPanel.tsx`).
+
+| Rule | Behaviour |
+|---|---|
+| Shuffle | Each attempt stores its own question order and option order (`Attempt.questionOrder`, `optionOrders`). The browser sends the slot it showed; the server stores the original index. |
+| Violations | Leaving the quiz (tab hidden / other app, away ≥ 1.5 s), copy/cut, right-click, Ctrl+P / print, Print Screen. Each one is logged (`AttemptEvent`) with a warning "Vi phạm x / N". |
+| Threshold | N = admin setting `quiz.maxViolations` (default 3, 0–20), global for all courses, counted per attempt. Violation N+1 voids the attempt: 0 points, not passed, the attempt stays used. |
+| Review | Per-question right/wrong is hidden until an admin switches on "Thành viên xem đúng/sai từng câu" on the quiz (`Quiz.reviewReleased`). |
+| Watermark | Name · employee code · time, repeated diagonally over the quiz; no text selection. |
+| Flags (admin only, never block) | Several tabs/devices on one attempt, same network at the same time, under 5 s per question, identical answers to another member. |
+
+Not possible in a browser: blocking screenshots taken with another device. The watermark and shuffling make a leaked picture traceable and less useful.
+
 ## Brand (Saigon Technology)
 
 - Constants in [`src/lib/brand.ts`](src/lib/brand.ts): company name, tagline "Your success is our mission", brand colours, and the "S" mark paths (from the company's logo SVG; white strokes = ink, green strokes = #8DC63F). Favicon = [`src/app/icon.svg`](src/app/icon.svg).

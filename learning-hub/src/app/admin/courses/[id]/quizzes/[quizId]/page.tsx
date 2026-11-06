@@ -35,11 +35,12 @@ export default async function QuizPage({ params, searchParams }: { params: Promi
         maxAttempts: quiz.maxAttempts,
         opensAt: quiz.opensAt,
         closesAt: quiz.closesAt,
+        reviewReleased: quiz.reviewReleased,
         sourceIds: quiz.sources.map((s) => s.lessonId),
       }}
       course={{ id: quiz.course.id, title: quiz.course.title, lessons: quiz.course.lessons.map((l) => ({ id: l.id, title: l.title, type: l.type, hasTranscript: Boolean(l.transcript) })) }}
       questions={quiz.questions.map((q) => ({ id: q.id, text: q.text, options: parseOptions(q.options), correctIndex: q.correctIndex, explanation: q.explanation, reviewStatus: q.reviewStatus, edited: q.edited, sample: q.text.startsWith("[Câu hỏi mẫu]") }))}
-      attempts={quiz.attempts.map((a) => ({ id: a.id, name: displayName(a.user), group: a.user.group?.name ?? null, number: a.number, status: a.status, score: a.score, passed: a.passed, startedAt: a.startedAt, submittedAt: a.submittedAt, auto: a.autoSubmitted }))}
+      attempts={quiz.attempts.map((a) => ({ id: a.id, name: displayName(a.user), group: a.user.group?.name ?? null, number: a.number, status: a.status, score: a.score, passed: a.passed, startedAt: a.startedAt, submittedAt: a.submittedAt, auto: a.autoSubmitted, voided: a.voided, violations: a.violations }))}
       stats={{
         people,
         passRate: submitted.length ? Math.round((submitted.filter((a) => a.passed).length / submitted.length) * 100) : null,

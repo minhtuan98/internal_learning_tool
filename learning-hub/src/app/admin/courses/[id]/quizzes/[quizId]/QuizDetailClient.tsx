@@ -3,15 +3,15 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dayjs, { type Dayjs } from "dayjs";
-import { Alert, App, Button, Card, Checkbox, Col, DatePicker, Descriptions, Dropdown, Empty, Flex, Form, Input, InputNumber, Modal, Radio, Row, Segmented, Spin, Statistic, Table, Tabs, Tag, Typography } from "antd";
+import { Alert, App, Button, Card, Checkbox, Col, DatePicker, Descriptions, Dropdown, Empty, Flex, Form, Input, InputNumber, Modal, Radio, Row, Segmented, Spin, Statistic, Switch, Table, Tabs, Tag, Tooltip, Typography } from "antd";
 import { CheckCircleFilled, CheckOutlined, CloseOutlined, DeleteOutlined, EditOutlined, MoreOutlined, RobotOutlined, UndoOutlined } from "@ant-design/icons";
 import { countUpFormatter, CourseStatusTag, FootNote, PageHeader, PassTag, report } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
-import { approveAllPending, deleteQuiz, generateQuizQuestions, reviewQuestion, saveQuizSettings, setQuizStatus, updateQuestion, updateQuizInfo } from "@/server/quiz-actions";
+import { approveAllPending, deleteQuiz, generateQuizQuestions, reviewQuestion, saveQuizSettings, setQuizReviewRelease, setQuizStatus, updateQuestion, updateQuizInfo } from "@/server/quiz-actions";
 
 type Q = { id: string; text: string; options: string[]; correctIndex: number; explanation: string | null; reviewStatus: string; edited: boolean; sample: boolean };
-type Quiz = { id: string; title: string; status: string; passScore: number; timeLimitMinutes: number; maxAttempts: number; opensAt: Date | null; closesAt: Date | null; sourceIds: string[] };
-type Attempt = { id: string; name: string; group: string | null; number: number; status: string; score: number | null; passed: boolean | null; startedAt: Date; submittedAt: Date | null; auto: boolean };
+type Quiz = { id: string; title: string; status: string; passScore: number; timeLimitMinutes: number; maxAttempts: number; opensAt: Date | null; closesAt: Date | null; reviewReleased: boolean; sourceIds: string[] };
+type Attempt = { id: string; name: string; group: string | null; number: number; status: string; score: number | null; passed: boolean | null; startedAt: Date; submittedAt: Date | null; auto: boolean; voided: boolean; violations: number };
 
 const LETTERS = ["A", "B", "C", "D"];
 
@@ -44,6 +44,9 @@ export default function QuizDetailClient({
   const [iForm] = Form.useForm();
   const [busy, setBusy] = useState(false);
   const refresh = () => router.refresh();
+  const toggleReview = async (released: boolean) => {
+    if (report(message, await setQuizReviewRelease(quiz.id, released))) refresh();
+  };
 
   const counts = useMemo(() => ({
     ALL: questions.length,
@@ -311,7 +314,8 @@ export default function QuizDetailClient({
         { title: "Lượt", dataIndex: "number" },
         { title: "Bắt đầu", render: (_, a) => fmtDateTime(a.startedAt) },
         { title: "Nộp bài", render: (_, a) => (a.status === "IN_PROGRESS" ? <Tag color="processing">Đang làm</Tag> : <>{fmtDateTime(a.submittedAt)}{a.auto && <Tag style={{ marginLeft: 6 }}>Tự nộp</Tag>}</>) },
-        { title: "Điểm", render: (_, a) => (a.score === null ? "—" : `${a.score}%`) },
+        { title: "Điểm", render: (_, a) => (a.voided ? <Tag color="error">Bị hủy · 0%</Tag> : a.score === null ? "—" : `${a.score}%`) },
+        { title: "Vi phạm", render: (_, a) => (a.violations > 0 ? <Tooltip title="Xem chi tiết ở Kết quả → Giám sát thi"><Tag color="warning">{a.violations} lần</Tag></Tooltip> : <Typography.Text type="secondary">0</Typography.Text>) },
         { title: "Kết quả", render: (_, a) => <PassTag passed={a.passed} /> },
       ]}
     />
@@ -347,6 +351,19 @@ export default function QuizDetailClient({
           { key: "p", label: "Điểm đạt (nhận chứng chỉ)", children: `≥ ${quiz.passScore}%` },
           { key: "t", label: "Thời gian", children: `${quiz.timeLimitMinutes} phút` },
           { key: "a", label: "Tối đa", children: `${quiz.maxAttempts} lượt` },
+          {
+            key: "r",
+            label: "Thành viên xem đúng/sai từng câu",
+            span: 4,
+            children: (
+              <Flex align="center" gap={10}>
+                <Switch checked={quiz.reviewReleased} onChange={toggleReview} checkedChildren="Đã mở" unCheckedChildren="Đang khóa" />
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {quiz.reviewReleased ? "Thành viên đang xem được câu nào đúng/sai sau mỗi lượt." : "Chống dò đáp án: chỉ hiện điểm tổng. Mở khi kết thúc đợt thi."}
+                </Typography.Text>
+              </Flex>
+            ),
+          },
         ]}
       />
       <Tabs

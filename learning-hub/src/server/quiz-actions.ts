@@ -182,6 +182,16 @@ export async function setQuizStatus(quizId: string, status: "DRAFT" | "PUBLISHED
   return { ok: true, message: status === "PUBLISHED" ? "Đã xuất bản quiz." : "Đã chuyển quiz về nháp." };
 }
 
+/** Anti-cheat: members see right/wrong per question only after an admin releases it (e.g. when the exam period ends). */
+export async function setQuizReviewRelease(quizId: string, released: boolean): Promise<ActionResult> {
+  if (!(await actionAdmin())) return fail("Bạn không có quyền thực hiện thao tác này.");
+  const quiz = await prisma.quiz.findUnique({ where: { id: quizId } });
+  if (!quiz) return fail("Không tìm thấy quiz.");
+  await prisma.quiz.update({ where: { id: quizId }, data: { reviewReleased: Boolean(released) } });
+  revalidatePath(quizPath(quiz));
+  return { ok: true, message: released ? "Đã mở cho thành viên xem đúng/sai từng câu." : "Đã khóa phần xem đúng/sai từng câu." };
+}
+
 export async function deleteQuiz(quizId: string): Promise<ActionResult> {
   if (!(await actionAdmin())) return fail("Bạn không có quyền thực hiện thao tác này.");
   const attempts = await prisma.attempt.count({ where: { quizId } });
