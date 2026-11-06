@@ -49,7 +49,10 @@ export async function saveAnswer(attemptId: string, questionId: string, selected
   const a = await prisma.attempt.findUnique({ where: { id: attemptId } });
   if (!a || a.userId !== user.id) return fail("Không tìm thấy lượt làm bài.");
   if (a.status !== "IN_PROGRESS" || new Date() > new Date(a.deadlineAt.getTime() + 5_000)) return fail("Đã hết giờ làm bài.");
-  if (selectedIndex < 0 || selectedIndex > 3) return fail("Đáp án không hợp lệ.");
+  if (!Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex > 3) return fail("Đáp án không hợp lệ.");
+  // The question must belong to this attempt's quiz and be one the member was shown (approved).
+  const q = await prisma.question.findUnique({ where: { id: questionId }, select: { quizId: true, reviewStatus: true } });
+  if (!q || q.quizId !== a.quizId || q.reviewStatus !== "APPROVED") return fail("Câu hỏi không thuộc bài quiz này.");
   await prisma.answer.upsert({
     where: { attemptId_questionId: { attemptId, questionId } },
     create: { attemptId, questionId, selectedIndex },

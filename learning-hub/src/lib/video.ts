@@ -4,8 +4,9 @@ export function toEmbedUrl(url: string): string | null {
     const u = new URL(url.trim());
     const host = u.hostname.replace(/^www\./, "");
     if (host === "youtu.be") return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
-    if (host.endsWith("youtube.com")) {
-      if (u.pathname.startsWith("/embed/")) return u.toString();
+    if (host === "youtube.com" || host === "m.youtube.com" || host === "youtube-nocookie.com") {
+      if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+      if (u.pathname.startsWith("/embed/")) return `https://www.youtube.com/embed/${u.pathname.split("/")[2]}`;
       if (u.pathname.startsWith("/shorts/")) return `https://www.youtube.com/embed/${u.pathname.split("/")[2]}`;
       const v = u.searchParams.get("v");
       return v ? `https://www.youtube.com/embed/${v}` : null;
