@@ -1,6 +1,7 @@
 import { prisma } from "./db";
 import { deadlineLock, hasCourseAccess } from "./access";
 import { pct } from "./format";
+import { issueCertificates } from "./certificates";
 
 type UserLike = { id: string; groupId: string | null };
 const GRACE_MS = 5_000;
@@ -39,6 +40,8 @@ export async function finalizeAttempt(attemptId: string, auto = false) {
     }),
   );
   await prisma.$transaction(ops);
+  // A passing attempt may complete the course → certificate (DESIGN_SYSTEM.md → Certificates)
+  if (score >= a.quiz.passScore) await issueCertificates(a.userId, [a.quiz.courseId]);
   return prisma.attempt.findUnique({ where: { id: a.id } });
 }
 

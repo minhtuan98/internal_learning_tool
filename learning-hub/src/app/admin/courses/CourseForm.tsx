@@ -35,8 +35,16 @@ export default function CourseFormDrawer({
   const submit = async () => {
     const v = await form.validateFields();
     setBusy(true);
-    const r = await saveCourse(course?.id ?? null, v);
-    setBusy(false);
+    let r: Awaited<ReturnType<typeof saveCourse>>;
+    try {
+      r = await saveCourse(course?.id ?? null, v);
+    } catch {
+      // Network/server failure: stop the spinner and say what to do (heuristic #9).
+      message.error("Không lưu được khóa học do lỗi máy chủ hoặc mạng. Vui lòng thử lại.");
+      return;
+    } finally {
+      setBusy(false);
+    }
     if (!report(message, r)) return;
     onClose();
     if (!course && r.ok && r.data) router.push(`/admin/courses/${r.data.id}`);

@@ -1,0 +1,8 @@
+# never upload local secrets or local state
+.env
+.env.local
+node_modules
+.next
+prisma/dev.db
+prisma/*.db-journal
+*.tsbuildinfo

@@ -1,4 +1,4 @@
-/* Sample data matching the Figma designs (Acme Company). Run: npm run db:reset */
+/* Sample data for Saigon Technology (made-up people and sample policies, not real company data). Run: npm run db:reset */
 import { PrismaClient } from "@prisma/client";
 import { mkdirSync, writeFileSync } from "fs";
 import path from "path";
@@ -19,8 +19,8 @@ function cover(name: string, from: string, to: string, label: string) {
 <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs>
 <rect width="800" height="450" fill="url(#g)"/>
 <circle cx="660" cy="90" r="140" fill="#ffffff" fill-opacity="0.08"/><circle cx="120" cy="420" r="180" fill="#ffffff" fill-opacity="0.06"/>
-<text x="56" y="380" font-family="Inter, Segoe UI, Arial" font-size="44" font-weight="700" fill="#ffffff">${label}</text>
-<text x="56" y="80" font-family="Inter, Segoe UI, Arial" font-size="22" fill="#ffffff" fill-opacity="0.8">ACME · LEARNING HUB</text></svg>`;
+<text x="56" y="380" font-family="Inter, Segoe UI, Arial" font-size="${label.length > 22 ? 34 : 44}" font-weight="700" fill="#ffffff">${label}</text>
+<text x="56" y="80" font-family="Inter, Segoe UI, Arial" font-size="22" fill="#ffffff" fill-opacity="0.8">SAIGON TECHNOLOGY · LEARNING HUB</text></svg>`;
   writeFileSync(path.join(dir, name), svg);
   return name;
 }
@@ -61,11 +61,11 @@ const TRANSCRIPT =
   "Cuối cùng, hãy dùng nút báo cáo lừa đảo trong hộp thư để đội IT kiểm tra và chặn email tương tự cho cả công ty.";
 
 const WELCOME_1 =
-  "<h2>Chào mừng bạn đến với Acme</h2>" +
+  "<h2>Chào mừng bạn đến với Saigon Technology</h2>" +
   p(
-    "Acme được thành lập với mong muốn mang công nghệ đơn giản, đáng tin cậy đến các doanh nghiệp vừa và nhỏ.",
-    "Ba giá trị cốt lõi của chúng tôi là khách hàng trước tiên, minh bạch trong mọi việc và học hỏi mỗi ngày.",
-    "Mỗi quý, công ty tổ chức buổi chia sẻ để mọi người cùng nhìn lại mục tiêu và kết quả của từng nhóm.",
+    "“Your success is our mission” — thành công của khách hàng và đồng nghiệp là mục tiêu chung của chúng ta.",
+    "Khóa học này là nội dung mẫu để giới thiệu cách dùng Learning Hub: mỗi bài học ngắn, có thể học theo nhịp độ của bạn.",
+    "Bộ phận Đào tạo sẽ thay nội dung mẫu bằng tài liệu hội nhập chính thức của công ty.",
   );
 const WELCOME_2 =
   "<h2>Cách chúng ta làm việc cùng nhau</h2>" +
@@ -77,7 +77,7 @@ const WELCOME_2 =
 const DATA_1 =
   "<h2>Phân loại dữ liệu</h2>" +
   p(
-    "Dữ liệu tại Acme được chia thành bốn mức: công khai, nội bộ, bảo mật và tuyệt mật.",
+    "Theo chính sách mẫu trong khóa học này, dữ liệu được chia thành bốn mức: công khai, nội bộ, bảo mật và tuyệt mật.",
     "Dữ liệu khách hàng như hợp đồng, thông tin liên hệ và lịch sử giao dịch luôn thuộc mức bảo mật trở lên.",
     "Dữ liệu tuyệt mật chỉ được chia sẻ cho người có tên trong danh sách được phê duyệt.",
   );
@@ -111,7 +111,7 @@ const QUIZ_2: Q[] = [
   ["Câu nào sau đây là đúng về bảo mật?", ["Chỉ IT chịu trách nhiệm bảo mật", "Mỗi nhân viên là một lớp phòng thủ", "Bảo mật chỉ cần phần mềm diệt virus", "Đổi mật khẩu mỗi ngày là đủ"], 1, "Mỗi nhân viên là một lớp phòng thủ."],
 ];
 const QUIZ_DATA: Q[] = [
-  ["Dữ liệu tại Acme được chia thành mấy mức?", ["2", "3", "4", "5"], 2, "Bốn mức: công khai, nội bộ, bảo mật, tuyệt mật."],
+  ["Theo chính sách mẫu, dữ liệu được chia thành mấy mức?", ["2", "3", "4", "5"], 2, "Bốn mức: công khai, nội bộ, bảo mật, tuyệt mật."],
   ["Hợp đồng khách hàng thuộc mức dữ liệu nào?", ["Công khai", "Nội bộ", "Bảo mật trở lên", "Không cần phân loại"], 2, "Dữ liệu khách hàng luôn thuộc mức bảo mật trở lên."],
   ["Khi chia sẻ tệp trên Google Drive, cách an toàn là:", ["Bất kỳ ai có đường liên kết", "Cấp quyền cho từng người cụ thể", "Công khai trên web", "Gửi qua email cá nhân"], 1, "Chỉ cấp quyền cho từng người cụ thể."],
 ];
@@ -145,23 +145,23 @@ async function main() {
   const mk = (email: string, fullName: string | null, role: string, code: string, title: string, groupId: string | null, extra: object = {}) =>
     prisma.user.create({ data: { email, fullName, role, employeeCode: code, jobTitle: title, groupId, lastSignInAt: fullName ? at(-1, 9) : null, ...extra } });
 
-  await mk("minhanh@acme.vn", "Nguyễn Minh Anh", "ADMIN", "AC001", "Trưởng phòng Đào tạo", null);
-  await mk("quanghuy@acme.vn", "Trần Quang Huy", "ADMIN", "AC002", "Chuyên viên Đào tạo", null);
+  await mk("minhanh@saigontechnology.com", "Nguyễn Minh Anh", "ADMIN", "ST001", "Trưởng phòng Đào tạo", null);
+  await mk("quanghuy@saigontechnology.com", "Trần Quang Huy", "ADMIN", "ST002", "Chuyên viên Đào tạo", null);
   const first = process.env.FIRST_ADMIN_EMAIL?.trim().toLowerCase();
-  if (first) await mk(first, null, "ADMIN", "AC000", "Quản trị viên hệ thống", null);
-  const lanAnh = await mk("lananh@acme.vn", "Nguyễn Lan Anh", "MEMBER", "AC014", "Chuyên viên nhân sự", hr.id);
-  const khoa = await mk("khoa@acme.vn", "Trần Minh Khoa", "MEMBER", "AC021", "Nhân viên kinh doanh", sales.id);
-  const nam = await mk("nam@acme.vn", "Lê Hoàng Nam", "MEMBER", "AC009", "Kỹ sư phần mềm", eng.id);
-  await mk("ha@acme.vn", "Phạm Thu Hà", "MEMBER", "AC018", "Thiết kế sản phẩm", product.id, { status: "LOCKED" });
-  const long = await mk("long@acme.vn", "Võ Đức Long", "MEMBER", "AC027", "Kỹ sư kiểm thử", eng.id);
-  const bao = await mk("bao@acme.vn", "Đặng Quốc Bảo", "MEMBER", "AC031", "Trưởng nhóm kinh doanh", sales.id);
-  await mk("linh@acme.vn", null, "MEMBER", "AC042", "Phân tích nghiệp vụ", product.id);
+  if (first) await mk(first, null, "ADMIN", "ST000", "Quản trị viên hệ thống", null);
+  const lanAnh = await mk("lananh@saigontechnology.com", "Nguyễn Lan Anh", "MEMBER", "ST014", "Chuyên viên nhân sự", hr.id);
+  const khoa = await mk("khoa@saigontechnology.com", "Trần Minh Khoa", "MEMBER", "ST021", "Nhân viên kinh doanh", sales.id);
+  const nam = await mk("nam@saigontechnology.com", "Lê Hoàng Nam", "MEMBER", "ST009", "Kỹ sư phần mềm", eng.id);
+  await mk("ha@saigontechnology.com", "Phạm Thu Hà", "MEMBER", "ST018", "Thiết kế sản phẩm", product.id, { status: "LOCKED" });
+  const long = await mk("long@saigontechnology.com", "Võ Đức Long", "MEMBER", "ST027", "Kỹ sư kiểm thử", eng.id);
+  const bao = await mk("bao@saigontechnology.com", "Đặng Quốc Bảo", "MEMBER", "ST031", "Trưởng nhóm kinh doanh", sales.id);
+  await mk("linh@saigontechnology.com", null, "MEMBER", "ST042", "Phân tích nghiệp vụ", product.id);
 
   const sec = await prisma.course.create({
     data: { title: "Bảo mật thông tin", description: "Xây dựng thói quen bảo vệ thông tin công ty mỗi ngày.", coverImage: cover("seed-security.svg", "#214E91", "#3B6FBF", "Bảo mật thông tin"), categoryId: catSec.id, status: "PUBLISHED", updatedBy: "Nguyễn Minh Anh" },
   });
   const welcome = await prisma.course.create({
-    data: { title: "Chào mừng đến Acme", description: "Tìm hiểu con người, văn hóa và cách chúng ta làm việc.", coverImage: cover("seed-welcome.svg", "#206347", "#3E8E6A", "Chào mừng đến Acme"), categoryId: catOnb.id, status: "PUBLISHED", updatedBy: "Nguyễn Minh Anh" },
+    data: { title: "Chào mừng đến Saigon Technology", description: "Tìm hiểu con người, văn hóa và cách chúng ta làm việc.", coverImage: cover("seed-welcome.svg", "#206347", "#3E8E6A", "Chào mừng đến Saigon Technology"), categoryId: catOnb.id, status: "PUBLISHED", updatedBy: "Nguyễn Minh Anh" },
   });
   await prisma.course.create({
     data: { title: "Làm việc nhóm hiệu quả", description: "Giao tiếp, phân công và phản hồi trong nhóm.", coverImage: cover("seed-team.svg", "#83550B", "#C08A2E", "Làm việc nhóm hiệu quả"), categoryId: catSoft.id, status: "DRAFT", updatedBy: "Trần Quang Huy" },
@@ -175,7 +175,7 @@ async function main() {
   const s2 = await L(sec.id, 2, "Nhận diện email lừa đảo", "VIDEO", { videoUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE", transcript: TRANSCRIPT, durationMinutes: 8 });
   const s3 = await L(sec.id, 3, "Quản lý mật khẩu an toàn", "ARTICLE", { articleBody: ARTICLE_2, durationMinutes: 5 });
   const s4 = await L(sec.id, 4, "Bảo vệ thiết bị làm việc", "VIDEO", { videoUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE", durationMinutes: 6 });
-  const w1 = await L(welcome.id, 1, "Văn hóa Acme", "ARTICLE", { articleBody: WELCOME_1, durationMinutes: 4 });
+  const w1 = await L(welcome.id, 1, "Văn hóa và sứ mệnh", "ARTICLE", { articleBody: WELCOME_1, durationMinutes: 4 });
   const w2 = await L(welcome.id, 2, "Cách chúng ta làm việc", "ARTICLE", { articleBody: WELCOME_2, durationMinutes: 4 });
   const d1 = await L(data.id, 1, "Phân loại dữ liệu", "ARTICLE", { articleBody: DATA_1, durationMinutes: 5 });
   const d2 = await L(data.id, 2, "Chia sẻ dữ liệu an toàn", "ARTICLE", { articleBody: DATA_2, durationMinutes: 5 });
@@ -247,7 +247,11 @@ async function main() {
   await assign(welcome.id, at(7, 17), [hr, sales, eng, product].map((g) => ({ groupId: g.id })));
   await assign(data.id, at(10, 17), [{ userId: lanAnh.id }, { userId: long.id }]); // Đức Long has no access (DEC-056)
 
-  console.log("Seed complete: 9 users, 4 courses, 3 quizzes, 4 assignments.");
+  // Certificates for members who already completed a course (same rule as the app).
+  const { syncCertificates } = await import("../src/lib/certificates");
+  const certs = await syncCertificates();
+
+  console.log(`Seed complete: 9 users, 4 courses, 3 quizzes, 4 assignments, ${certs} certificates.`);
 }
 
 main()

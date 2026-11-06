@@ -46,7 +46,7 @@ export default function CoursesClient({ rows, categories }: { rows: R[]; categor
         description="Quản lý nội dung, quyền truy cập và xuất bản tại một nơi."
         extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setDrawer({ open: true, course: null })}>Tạo khóa học</Button>}
       />
-      <Row gutter={16} style={{ marginBottom: 20 }}>
+      <Row gutter={16} className="lh-stagger" style={{ marginBottom: 16 }}>
         <Col span={8}><KpiCard label="Tổng khóa học" value={rows.length} /></Col>
         <Col span={8}><KpiCard label="Đã xuất bản" value={published} /></Col>
         <Col span={8}><KpiCard label="Bản nháp" value={rows.length - published} /></Col>

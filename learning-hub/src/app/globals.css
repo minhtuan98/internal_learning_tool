@@ -1,38 +1,302 @@
+/*
+ * Global styles. Colours come from antd CSS variables (var(--ant-*), cssVar.prefix = "ant"),
+ * which Figma variables in collection "antd theme" map to 1-1 — see DESIGN_SYSTEM.md.
+ * antd scopes those variables to its component roots, so html/body (outside any antd node)
+ * keep a two-value fallback that must match colorBgLayout / colorText in src/theme/tokens.ts.
+ * --lh-* = "Aurora AI" effect variables (DESIGN_SYSTEM.md → Aurora AI), Figma "aurora/*",
+ * coloured with the Saigon Technology brand (green #8DC63F → teal #03B0BC → blue #1E73BE).
+ * --lh-btn-grad = darker teal → blue so white button text keeps ≥ 4.5:1 contrast.
+ */
 :root {
-  --lh-bg: #f8fafc;
-  --lh-surface: #ffffff;
-  --lh-border: #dce3ed;
-  --lh-text: #17243a;
-  --lh-text-2: #58677d;
-  --lh-primary: #214e91;
+  --lh-page-bg: #f5f6fb; --lh-page-text: #141632;
+  --lh-grad-from: #8dc63f; --lh-grad-via: #03b0bc; --lh-grad-to: #1e73be;
+  --lh-grad: linear-gradient(120deg, var(--lh-grad-from) 0%, var(--lh-grad-via) 55%, var(--lh-grad-to) 100%);
+  --lh-btn-grad: linear-gradient(120deg, #0a7d88 0%, #0b6f9a 50%, #1c5fa6 100%);
+  --lh-glass-bg: rgba(255, 255, 255, 0.72);
+  --lh-glass-border: rgba(11, 124, 134, 0.14);
+  --lh-glass-highlight: rgba(255, 255, 255, 0.9);
+  --lh-glow: 0 8px 28px -10px rgba(3, 176, 188, 0.45);
+  --lh-glow-strong: 0 0 0 1px rgba(3, 176, 188, 0.3), 0 12px 36px -10px rgba(3, 176, 188, 0.5);
+  --lh-grid-line: rgba(11, 124, 134, 0.07);
+  --lh-aurora-1: rgba(141, 198, 63, 0.16); --lh-aurora-2: rgba(3, 176, 188, 0.14); --lh-aurora-3: rgba(30, 115, 190, 0.10);
+  --lh-title-grad: linear-gradient(90deg, #102030 0%, #0b6f78 55%, #1e5fa0 100%);
 }
 :root[data-theme="dark"] {
-  --lh-bg: #0e1522;
-  --lh-surface: #152033;
-  --lh-border: #2a3a55;
-  --lh-text: #e6ecf5;
-  --lh-text-2: #a9b6ca;
-  --lh-primary: #7fa6e3;
+  --lh-page-bg: #070915; --lh-page-text: #e8eaf6;
+  --lh-glass-bg: rgba(15, 18, 40, 0.62);
+  --lh-glass-border: rgba(120, 200, 210, 0.14);
+  --lh-glass-highlight: rgba(255, 255, 255, 0.06);
+  --lh-glow: 0 8px 32px -8px rgba(3, 176, 188, 0.55);
+  --lh-glow-strong: 0 0 0 1px rgba(44, 197, 207, 0.45), 0 12px 40px -8px rgba(3, 176, 188, 0.6);
+  --lh-grid-line: rgba(120, 200, 210, 0.06);
+  --lh-aurora-1: rgba(141, 198, 63, 0.20); --lh-aurora-2: rgba(3, 176, 188, 0.22); --lh-aurora-3: rgba(30, 115, 190, 0.20);
+  --lh-title-grad: linear-gradient(90deg, #f2f8fb 0%, #b5e07a 50%, #5fd6de 100%);
 }
+
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--lh-bg); color: var(--lh-text); }
-body { font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; min-width: 1280px; }
+html, body { margin: 0; padding: 0; background: var(--lh-page-bg); color: var(--lh-page-text); }
+body { font-family: var(--font-sans), Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; min-width: 1280px; position: relative; isolation: isolate; }
 a { color: inherit; }
 
+/* ---------- Aurora backdrop: soft colour fields + faint grid, fixed behind everything ---------- */
+body::before, body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1; }
+body::before {
+  background:
+    radial-gradient(56rem 36rem at 8% -12%, var(--lh-aurora-1), transparent 62%),
+    radial-gradient(48rem 34rem at 102% 2%, var(--lh-aurora-2), transparent 60%),
+    radial-gradient(44rem 30rem at 55% 115%, var(--lh-aurora-3), transparent 60%);
+  animation: lh-aurora 40s ease-in-out infinite alternate;
+}
+body::after {
+  background-image:
+    linear-gradient(var(--lh-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--lh-grid-line) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 100%);
+}
+@keyframes lh-aurora {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(-2%, 1.5%, 0) scale(1.06); }
+}
+
+/* Glass surfaces: shell sider/header, cards */
+.lh-glass {
+  background: var(--lh-glass-bg) !important;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+.ant-card:not(.ant-card-type-inner) {
+  background: var(--lh-glass-bg);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-color: var(--lh-glass-border);
+  box-shadow: inset 0 1px 0 var(--lh-glass-highlight);
+}
+
+/* Gradient text (page titles, wordmark) */
+.lh-gradient-text {
+  background: var(--lh-title-grad);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.lh-accent-text { background: var(--lh-grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+
+/* Display font for headings and numbers */
+h1.ant-typography, h2.ant-typography, h3.ant-typography, .ant-statistic-content, .lh-display { font-family: var(--font-display), var(--font-sans), sans-serif; letter-spacing: -0.01em; }
+
+/* Primary button: aurora gradient + glow */
+html .ant-btn.ant-btn-color-primary.ant-btn-variant-solid:not(:disabled):not(.ant-btn-disabled) {
+  background: var(--lh-btn-grad); background-size: 140% 100%; background-position: 0% 50%;
+  border-color: transparent; box-shadow: var(--lh-glow);
+  transition: background-position var(--ant-motion-duration-slow, .25s) ease-out, box-shadow var(--ant-motion-duration-mid, .2s), transform var(--ant-motion-duration-fast, .1s);
+}
+html .ant-btn.ant-btn-color-primary.ant-btn-variant-solid:not(:disabled):not(.ant-btn-disabled):hover { background-position: 100% 50%; box-shadow: var(--lh-glow-strong); }
+html .ant-btn.ant-btn-color-primary.ant-btn-variant-solid:not(:disabled):not(.ant-btn-disabled):active { transform: translateY(1px); }
+
+/* Progress: gradient fill (success / exception keep their status colour) */
+.ant-progress-line:not(.ant-progress-status-success):not(.ant-progress-status-exception) .ant-progress-track { background: var(--lh-grad) !important; }
+
+/* Inline menu: selected item gets a gradient wash + glowing left rail */
+.ant-menu-inline .ant-menu-item-selected {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--lh-grad-from) 24%, transparent), color-mix(in srgb, var(--lh-grad-to) 6%, transparent)) !important;
+  box-shadow: inset 2px 0 0 var(--lh-grad-from), -6px 0 18px -6px var(--lh-grad-from);
+}
+
+/* KPI card: gradient hairline on top */
+.lh-kpi { position: relative; overflow: hidden; }
+.lh-kpi::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: var(--lh-grad); opacity: 0.85; }
+.lh-kpi-icon { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: #fff; background: var(--lh-grad); box-shadow: var(--lh-glow); font-size: 14px; }
+
+/* Brand tile (logo) */
+.lh-brand-tile { display: grid; place-items: center; color: #fff; background: var(--lh-grad); box-shadow: var(--lh-glow); position: relative; }
+.lh-brand-tile::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+
+/* Gradient-bordered glass panel (sider note, login card) */
+.lh-glow-border { position: relative; border-radius: 12px; }
+.lh-glow-border::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--lh-grad-from) 70%, transparent), transparent 40%, transparent 60%, color-mix(in srgb, var(--lh-grad-to) 60%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+
+/* Overlays blur what's behind them */
+.ant-drawer-mask, .ant-modal-mask { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+
 /* Article content rendered from the rich-text editor */
-.lh-article { font-size: 16px; line-height: 1.75; color: var(--lh-text); }
-.lh-article h2 { font-size: 22px; margin: 28px 0 12px; }
-.lh-article h3 { font-size: 18px; margin: 24px 0 8px; }
-.lh-article img { max-width: 100%; border-radius: 8px; margin: 12px 0; }
-.lh-article blockquote { margin: 16px 0; padding: 8px 16px; border-left: 3px solid var(--lh-primary); color: var(--lh-text-2); }
-.lh-article a { color: var(--lh-primary); }
+.lh-article { font-size: 16px; line-height: 1.7; color: var(--ant-color-text); }
+.lh-article h2 { font-size: 22px; margin: 24px 0 12px; }
+.lh-article h3 { font-size: 18px; margin: 20px 0 8px; }
+.lh-article img { max-width: 100%; border-radius: var(--ant-border-radius); margin: 12px 0; }
+.lh-article blockquote { margin: 16px 0; padding: 8px 16px; border-left: 3px solid var(--ant-color-primary); color: var(--ant-color-text-secondary); }
+.lh-article a { color: var(--ant-color-primary); }
 
 /* TipTap editor surface */
-.lh-editor .ProseMirror { min-height: 360px; padding: 16px 20px; outline: none; }
-.lh-editor .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #9aa6b8; float: left; height: 0; pointer-events: none; }
+.lh-editor .ProseMirror { min-height: 320px; padding: 12px 16px; outline: none; }
+.lh-editor .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--ant-color-text-quaternary); float: left; height: 0; pointer-events: none; }
 
-.lh-video { position: relative; width: 100%; padding-top: 56.25%; border-radius: 8px; overflow: hidden; background: #0b1220; }
+.lh-video { position: relative; width: 100%; padding-top: 56.25%; border-radius: var(--ant-border-radius); overflow: hidden; background: #0b1220; }
 .lh-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
-.lh-clickable { cursor: pointer; transition: box-shadow .15s; }
-.lh-clickable:hover { box-shadow: 0 4px 16px rgba(23, 36, 58, .08); }
+/* ---------- Motion (DESIGN_SYSTEM.md → Motion: subtle) ---------- */
+@keyframes lh-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes lh-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Page enter: admin/template.tsx, learn/template.tsx */
+.lh-page { animation: lh-enter var(--ant-motion-duration-mid, .2s) ease-out both; }
+
+/* Loading skeleton fades in so quick loads don't flash */
+.lh-skeleton { animation: lh-fade var(--ant-motion-duration-mid, .2s) ease-out 80ms both; }
+
+/* Staggered lists of cards / KPIs (max 6 steps) */
+.lh-stagger > * { animation: lh-enter var(--ant-motion-duration-mid, .2s) ease-out both; }
+.lh-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.lh-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.lh-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.lh-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.lh-stagger > *:nth-child(n + 6) { animation-delay: 200ms; }
+
+/* Clickable card: lift 2px + soft shadow */
+.lh-clickable { cursor: pointer; transition: box-shadow var(--ant-motion-duration-mid, .2s) ease-in-out, transform var(--ant-motion-duration-mid, .2s) ease-in-out, border-color var(--ant-motion-duration-mid, .2s); }
+.lh-clickable:hover { transform: translateY(-2px); box-shadow: var(--lh-glow-strong), inset 0 1px 0 var(--lh-glass-highlight); border-color: var(--ant-color-primary-border); }
+.lh-row-link { transition: background-color var(--ant-motion-duration-fast, .1s); }
+.lh-row-link:hover { background: color-mix(in srgb, var(--lh-grad-from) 8%, transparent); }
+
+/* Stacked bar segments grow in */
+.lh-stacked > * { transition: width var(--ant-motion-duration-slow, .25s) ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
+  .lh-clickable:hover { transform: none; }
+}
+
+/* ---------- Login (Aurora AI) ---------- */
+.lh-login-card { box-shadow: var(--lh-glow), inset 0 1px 0 var(--lh-glass-highlight) !important; }
+.lh-login-orb::before {
+  content: ""; position: absolute; inset: -14px; border-radius: 24px; z-index: -1;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--lh-grad-from) 55%, transparent), transparent);
+  filter: blur(8px); animation: lh-pulse 4s ease-in-out infinite;
+}
+@keyframes lh-pulse { 0%, 100% { opacity: .55; transform: scale(.96); } 50% { opacity: .9; transform: scale(1.04); } }
+
+/* Hero / "continue where you left off" panel: aurora wash on glass */
+.ant-card.lh-hero {
+  background:
+    linear-gradient(110deg, color-mix(in srgb, var(--lh-grad-from) 22%, transparent), color-mix(in srgb, var(--lh-grad-via) 10%, transparent) 55%, color-mix(in srgb, var(--lh-grad-to) 14%, transparent)),
+    var(--lh-glass-bg);
+  border-color: transparent;
+}
+
+/* ---------- Welcome (DESIGN_SYSTEM.md → Screens → Welcome) ---------- */
+.lh-welcome { min-height: 100vh; }
+.lh-welcome canvas { cursor: crosshair; }
+
+/* ======================================================================
+ * Learner page effects (futuristic, minimal). Colours = brand tokens above.
+ * ====================================================================== */
+
+/* 1. Glass Card: "Tiếp tục học" block on Khóa học của tôi (effect-labs fx-0301, adapted).
+ *    Soft brand orbs sit behind a frosted card; no hover lift, so the layout never moves. */
+.lh-glass-scene { position: relative; isolation: isolate; border-radius: 16px; }
+.lh-glass-orb {
+  position: absolute; z-index: -1; border-radius: 50%; filter: blur(48px); opacity: .45; pointer-events: none;
+  animation: lh-orb-float 14s ease-in-out infinite;
+}
+.lh-glass-orb--1 { width: 200px; height: 120px; left: 4%; top: -18px; background: var(--lh-grad-from); }
+.lh-glass-orb--2 { width: 220px; height: 130px; right: 6%; bottom: -24px; background: var(--lh-grad-to); animation-delay: -5s; }
+.lh-glass-orb--3 { width: 160px; height: 100px; left: 42%; top: 10%; background: var(--lh-grad-via); opacity: .3; animation-delay: -9s; }
+@keyframes lh-orb-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(14px, -8px) scale(1.06); }
+  66% { transform: translate(-10px, 10px) scale(.95); }
+}
+.ant-card.lh-glass-card {
+  position: relative; overflow: hidden; border-radius: 16px;
+  background: color-mix(in srgb, var(--ant-color-bg-container) 58%, transparent);
+  backdrop-filter: blur(20px) saturate(150%); -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid var(--lh-glass-border);
+  box-shadow: 0 8px 32px -12px rgba(3, 176, 188, .35), inset 0 1px 0 var(--lh-glass-highlight);
+  transition: box-shadow var(--ant-motion-duration-slow, .25s) ease;
+}
+.ant-card.lh-glass-card::before { /* sheen from the top-left, as in the sample */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .10) 0%, transparent 45%);
+}
+.ant-card.lh-glass-card:hover, .ant-card.lh-glass-card:focus-within {
+  box-shadow: 0 12px 40px -10px rgba(3, 176, 188, .5), inset 0 1px 0 var(--lh-glass-highlight);
+}
+
+/* 2. Spotlight Card: course cards. Light follows --mouse-x/--mouse-y (set in MyCoursesClient);
+ *    keyboard focus inside the card shows the same light, centred. */
+.ant-card.lh-spotlight { position: relative; overflow: hidden; --mouse-x: 50%; --mouse-y: 35%; }
+.ant-card.lh-spotlight > .ant-card-cover, .ant-card.lh-spotlight > .ant-card-body { position: relative; z-index: 1; } /* light stays behind text */
+.ant-card.lh-spotlight::before {
+  content: ""; position: absolute; inset: 0; z-index: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(260px circle at var(--mouse-x) var(--mouse-y), color-mix(in srgb, var(--lh-grad-via) 22%, transparent), transparent 70%);
+  opacity: 0; transition: opacity var(--ant-motion-duration-slow, .25s) ease;
+}
+.ant-card.lh-spotlight:hover::before, .ant-card.lh-spotlight:focus-within::before { opacity: 1; }
+.ant-card.lh-spotlight:hover { border-color: color-mix(in srgb, var(--lh-grad-via) 45%, var(--lh-glass-border)); }
+
+/* 3. Gradient Shift: "Bắt đầu học" button (effect-labs fx-0101, adapted): 250 ms background-position
+ *    shift on hover and keyboard focus; no translate, so nothing moves around it. */
+html .ant-btn.ant-btn-color-primary.ant-btn-variant-solid.lh-btn-shift:not(:disabled):not(.ant-btn-disabled) {
+  background: linear-gradient(135deg, #0a7d88 0%, #0b6f9a 35%, #1c5fa6 65%, #0a7d88 100%);
+  background-size: 220% 220%; background-position: 0% 0%;
+  transition: background-position 250ms ease, box-shadow 250ms ease;
+}
+html .ant-btn.ant-btn-color-primary.ant-btn-variant-solid.lh-btn-shift:not(:disabled):not(.ant-btn-disabled):hover,
+html .ant-btn.ant-btn-color-primary.ant-btn-variant-solid.lh-btn-shift:not(:disabled):not(.ant-btn-disabled):focus-visible {
+  background-position: 100% 100%;
+  box-shadow: 0 10px 28px -10px rgba(3, 176, 188, .6);
+}
+html .ant-btn.lh-btn-shift:focus-visible { outline: 2px solid var(--ant-color-primary); outline-offset: 3px; }
+
+/* Static versions when the user asks for less motion */
+@media (prefers-reduced-motion: reduce) {
+  .lh-glass-orb { animation: none; }
+  html .ant-btn.ant-btn-color-primary.ant-btn-variant-solid.lh-btn-shift:not(:disabled):not(.ant-btn-disabled) { transition: none; }
+}
+
+/* Count-up numbers (CountUp in components/ui.tsx): reserved width + tabular digits → no layout shift */
+.lh-countup { display: inline-block; text-align: right; font-variant-numeric: tabular-nums; }
+.lh-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ---------- Certificate (components/Certificate.tsx; DESIGN_SYSTEM.md → Certificates) ----------
+ * The sheet is a size container: 1cqw = 1% of its width = 20 px of the 2000 × 1414 artwork,
+ * so thumbnails, the full page and the A4 print all use the same layout. */
+.lh-cert { container-type: inline-size; position: relative; width: 100%; aspect-ratio: 2000 / 1414; background: #fff; color: #1a1a1a; overflow: hidden; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.lh-cert__seal { position: absolute; left: 7.05%; top: 8.4%; width: 16.8cqw; height: 16.8cqw; }
+.lh-cert__body { position: absolute; top: 9.6%; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.lh-cert__logo { display: flex; align-items: center; gap: 1.8cqw; margin-left: -1cqw; }
+.lh-cert__mark { height: 5.3cqw; width: 3.75cqw; }
+.lh-cert__brand { font-family: var(--cert-sans), sans-serif; font-weight: 600; font-size: 1.75cqw; line-height: 1; color: #111; text-align: left; }
+.lh-cert__tagline { font-family: var(--cert-sans), sans-serif; font-size: 0.82cqw; letter-spacing: 0.28em; color: #333; margin-top: 0.5cqw; text-align: left; }
+.lh-cert__title { font-family: var(--cert-slab), serif; font-weight: 700; font-size: 4.6cqw; line-height: 1; letter-spacing: 0.02em; color: #1d4a44; margin-top: 2.6cqw; }
+.lh-cert__subtitle { font-family: var(--cert-sans), sans-serif; font-weight: 600; font-size: 2.05cqw; color: #1d4a44; margin-top: 1.2cqw; }
+.lh-cert__name { font-family: var(--cert-script), cursive; font-size: 5.4cqw; line-height: 1.3; color: #1d4a44; margin-top: 0.8cqw; max-width: 54cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lh-cert__rule { width: 49.5cqw; height: 0.15cqw; background: #c4a46a; }
+.lh-cert__text { font-family: var(--cert-serif), serif; font-size: 1.5cqw; color: #222; margin-top: 2.9cqw; }
+.lh-cert__course { font-family: var(--cert-serif), serif; font-weight: 700; font-size: 1.7cqw; line-height: 1.38; letter-spacing: 0.02em; text-transform: uppercase; color: #111; max-width: 47cqw; margin-top: 0.9cqw; }
+.lh-cert__held { font-family: var(--cert-serif), serif; font-size: 1.7cqw; color: #111; margin-top: 0.8cqw; }
+.lh-cert__number { font-family: var(--cert-serif), serif; font-size: 1.7cqw; margin-top: 0.5cqw; }
+.lh-cert__signer { position: absolute; top: 71.6%; left: 0; right: 0; text-align: center; }
+.lh-cert__signer-name { font-family: var(--cert-sans), sans-serif; font-weight: 700; font-size: 1.6cqw; color: #1d4a44; letter-spacing: 0.01em; }
+.lh-cert__signer-title { font-family: var(--cert-sans), sans-serif; font-size: 1.15cqw; color: #1d4a44; margin-top: 0.9cqw; }
+
+/* Thumbnail frame on the list pages */
+.lh-cert-thumb { border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.6); }
+
+/* Certificate page: toolbar + sheet; print = the sheet alone on A4 landscape */
+.lh-cert-page { min-height: 100vh; padding: 20px 32px 48px; }
+.lh-cert-page__sheet { max-width: 1180px; margin: 0 auto; box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.7); border-radius: 6px; overflow: hidden; }
+@media print {
+  @page { size: A4 landscape; margin: 0; }
+  html, body { background: #fff !important; min-width: 0 !important; }
+  body::before, body::after { display: none !important; }
+  .lh-noprint { display: none !important; }
+  .lh-cert-page { padding: 0; min-height: 0; }
+  .lh-cert-page__sheet { max-width: none; width: 297mm; box-shadow: none; border-radius: 0; }
+}

@@ -171,7 +171,7 @@ export default function CourseDetailClient({
         columns={[
           { title: "Quiz", render: (_, q) => (<><Typography.Text strong>{q.title}</Typography.Text><br /><Typography.Text type="secondary" style={{ fontSize: 12 }}>{q.opensAt || q.closesAt ? `${fmtDateTime(q.opensAt)} – ${fmtDateTime(q.closesAt)}` : "Không giới hạn thời gian mở"}</Typography.Text></>) },
           { title: "Trạng thái", render: (_, q) => <CourseStatusTag status={q.status} /> },
-          { title: "Câu hỏi / Điểm đạt", render: (_, q) => (<>{q.approved} câu · {q.passScore}%{q.pending > 0 && <Tag color="warning" style={{ marginLeft: 8 }}>{q.pending} chờ duyệt</Tag>}</>) },
+          { title: "Câu hỏi / Điểm đạt chứng chỉ", render: (_, q) => (<>{q.approved} câu · đạt ≥ {q.passScore}%{q.pending > 0 && <Tag color="warning" style={{ marginLeft: 8 }}>{q.pending} chờ duyệt</Tag>}</>) },
           { title: "Thời gian / Lượt", render: (_, q) => `${q.timeLimitMinutes} phút · ${q.maxAttempts} lượt` },
           { title: "Đã làm", render: (_, q) => `${q.people} người` },
           { title: "", render: (_, q) => <Button size="small" onClick={() => router.push(`/admin/courses/${course.id}/quizzes/${q.id}`)}>Xem chi tiết</Button> },

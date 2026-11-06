@@ -2,7 +2,10 @@ import { randomUUID } from "crypto";
 import { mkdir, writeFile, readFile } from "fs/promises";
 import path from "path";
 
-export const UPLOAD_DIR = path.join(process.cwd(), "data", "uploads");
+/** Bundled seed images (read-only on Vercel). */
+const BUNDLED_DIR = path.join(process.cwd(), "data", "uploads");
+/** Where new uploads go: /tmp on the Vercel demo (ephemeral), data/uploads locally. */
+export const UPLOAD_DIR = process.env.VERCEL ? "/tmp/learning-hub-uploads" : BUNDLED_DIR;
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // DEC-045, DEC-053
 
 const ALLOWED: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
@@ -27,11 +30,14 @@ export async function saveImage(file: File): Promise<{ ok: true; name: string } 
 
 export async function readUpload(name: string) {
   if (!/^[\w-]+\.(jpg|png|webp|svg)$/.test(name)) return null;
-  try {
-    return await readFile(path.join(UPLOAD_DIR, name));
-  } catch {
-    return null;
+  for (const dir of UPLOAD_DIR === BUNDLED_DIR ? [UPLOAD_DIR] : [UPLOAD_DIR, BUNDLED_DIR]) {
+    try {
+      return await readFile(path.join(dir, name));
+    } catch {
+      // try the next directory
+    }
   }
+  return null;
 }
 
 export const fileUrl = (name: string) => `/api/files/${name}`;

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import dayjs, { type Dayjs } from "dayjs";
 import { Alert, App, Button, Card, Checkbox, Col, DatePicker, Descriptions, Dropdown, Empty, Flex, Form, Input, InputNumber, Modal, Radio, Row, Segmented, Spin, Statistic, Table, Tabs, Tag, Typography } from "antd";
 import { CheckCircleFilled, CheckOutlined, CloseOutlined, DeleteOutlined, EditOutlined, MoreOutlined, RobotOutlined, UndoOutlined } from "@ant-design/icons";
-import { CourseStatusTag, FootNote, PageHeader, PassTag, report } from "@/components/ui";
+import { countUpFormatter, CourseStatusTag, FootNote, PageHeader, PassTag, report } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 import { approveAllPending, deleteQuiz, generateQuizQuestions, reviewQuestion, saveQuizSettings, setQuizStatus, updateQuestion, updateQuizInfo } from "@/server/quiz-actions";
 
@@ -216,10 +216,10 @@ export default function QuizDetailClient({
                 </Flex>
                 <Flex vertical gap={6} style={{ margin: "12px 0" }}>
                   {q.options.map((o, i) => (
-                    <Flex key={i} gap={8} align="flex-start" style={{ padding: "6px 10px", borderRadius: 6, background: i === q.correctIndex ? "var(--lh-correct, rgba(32,99,71,.08))" : undefined }}>
+                    <Flex key={i} gap={8} align="flex-start" style={{ padding: "6px 10px", borderRadius: 6, background: i === q.correctIndex ? "var(--ant-color-success-bg)" : undefined }}>
                       <Typography.Text strong style={{ width: 18 }}>{LETTERS[i]}</Typography.Text>
                       <Typography.Text style={{ flex: 1 }}>{o}</Typography.Text>
-                      {i === q.correctIndex && <CheckCircleFilled style={{ color: "#206347" }} />}
+                      {i === q.correctIndex && <CheckCircleFilled style={{ color: "var(--ant-color-success)" }} />}
                     </Flex>
                   ))}
                 </Flex>
@@ -238,9 +238,9 @@ export default function QuizDetailClient({
       <Col span={7}>
         <Card title="Thống kê nhanh">
           <Flex vertical gap={16}>
-            <Statistic title="Người đã làm" value={stats.people} />
-            <Statistic title="Tỷ lệ đạt" value={stats.passRate ?? "—"} suffix={stats.passRate !== null ? "%" : undefined} />
-            <Statistic title="Điểm trung bình" value={stats.avg ?? "—"} suffix={stats.avg !== null ? "%" : undefined} />
+            <Statistic formatter={countUpFormatter} title="Người đã làm" value={stats.people} />
+            <Statistic formatter={countUpFormatter} title="Tỷ lệ đạt" value={stats.passRate ?? "—"} suffix={stats.passRate !== null ? "%" : undefined} />
+            <Statistic formatter={countUpFormatter} title="Điểm trung bình" value={stats.avg ?? "—"} suffix={stats.avg !== null ? "%" : undefined} />
           </Flex>
         </Card>
         <Alert style={{ marginTop: 16 }} type="info" showIcon title="Quiz đã xuất bản vẫn sửa được toàn bộ." description="Thay đổi câu hỏi và cài đặt áp dụng ngay cho thành viên (DEC-057)." />
@@ -257,7 +257,7 @@ export default function QuizDetailClient({
       >
         <Row gutter={16}>
           <Col span={8}>
-            <Form.Item name="passScore" label="Điểm đạt" rules={[{ required: true }]} extra="Phần trăm số câu đúng.">
+            <Form.Item name="passScore" label="Điểm đạt để nhận chứng chỉ" rules={[{ required: true }]} extra="Phần trăm số câu đúng. Thành viên phải đạt mức này ở mọi quiz của khóa (và học hết bài) mới hoàn thành khóa và nhận chứng chỉ.">
               <InputNumber min={1} max={100} suffix="%" style={{ width: "100%" }} />
             </Form.Item>
           </Col>
@@ -341,10 +341,10 @@ export default function QuizDetailClient({
         bordered
         size="small"
         column={4}
-        style={{ marginBottom: 20 }}
+        style={{ marginBottom: 16 }}
         items={[
           { key: "q", label: "Câu hỏi đã duyệt", children: `${counts.APPROVED} câu` },
-          { key: "p", label: "Điểm đạt", children: `${quiz.passScore}%` },
+          { key: "p", label: "Điểm đạt (nhận chứng chỉ)", children: `≥ ${quiz.passScore}%` },
           { key: "t", label: "Thời gian", children: `${quiz.timeLimitMinutes} phút` },
           { key: "a", label: "Tối đa", children: `${quiz.maxAttempts} lượt` },
         ]}

@@ -6,6 +6,19 @@ import { Button, Card, Col, Empty, Flex, Input, Progress, Row, Select, Tabs, Tag
 import { ArrowRightOutlined, BookOutlined, CheckCircleOutlined, SyncOutlined } from "@ant-design/icons";
 import { DeadlineTag, FootNote, PageHeader } from "@/components/ui";
 
+/**
+ * Spotlight Card (after React Bits "SpotlightCard"): the pointer position is written to --mouse-x / --mouse-y
+ * and a radial-gradient in globals.css (.lh-spotlight::before) draws the light there.
+ * Skipped under prefers-reduced-motion, where the light stays centred (static version).
+ */
+function trackSpotlight(e: React.MouseEvent<HTMLDivElement>) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const el = e.currentTarget;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty("--mouse-x", `${e.clientX - r.left}px`);
+  el.style.setProperty("--mouse-y", `${e.clientY - r.top}px`);
+}
+
 type C = {
   id: string;
   title: string;
@@ -39,9 +52,14 @@ export default function MyCoursesClient({ name, cards, categories }: { name: str
     <>
       <PageHeader title="Mỗi ngày, thêm một điều mới." description={`Chào ${name}. Tiếp tục học tập theo nhịp độ của bạn.`} />
       {resume?.nextLesson && (
-        <Card style={{ background: token.colorPrimaryBg, borderColor: token.colorPrimaryBg, marginBottom: 24 }}>
-          <Flex align="center" gap={20}>
-            <span style={{ width: 48, height: 48, borderRadius: 8, background: token.colorBgContainer, display: "grid", placeItems: "center", fontSize: 20, color: token.colorPrimary }}><BookOutlined /></span>
+        // Glass Card (effect-labs fx-0301, adapted): frosted card over soft brand-colour orbs.
+        <div className="lh-glass-scene" style={{ marginBottom: 16 }}>
+          <span className="lh-glass-orb lh-glass-orb--1" aria-hidden="true" />
+          <span className="lh-glass-orb lh-glass-orb--2" aria-hidden="true" />
+          <span className="lh-glass-orb lh-glass-orb--3" aria-hidden="true" />
+        <Card className="lh-glass-card">
+          <Flex align="center" gap={16}>
+            <span className="lh-brand-tile" style={{ width: 48, height: 48, borderRadius: 12, fontSize: 20 }}><BookOutlined /></span>
             <div style={{ flex: 1 }}>
               <Typography.Text strong style={{ color: token.colorPrimary, fontSize: 12, letterSpacing: 0.4 }}>TIẾP TỤC TỪ NƠI BẠN DỪNG LẠI</Typography.Text>
               <Typography.Title level={4} style={{ margin: "2px 0" }}>{resume.nextLesson.title}</Typography.Title>
@@ -50,9 +68,10 @@ export default function MyCoursesClient({ name, cards, categories }: { name: str
                 {resume.nextLesson.minutes ? ` · ${resume.nextLesson.minutes} phút ${resume.nextLesson.type === "ARTICLE" ? "đọc" : "xem"}` : ""}
               </Typography.Text>
             </div>
-            <Button type="primary" size="large" icon={<ArrowRightOutlined />} href={`/learn/courses/${resume.id}/lessons/${resume.nextLesson.id}`}>Tiếp tục học</Button>
+            <Button type="primary" icon={<ArrowRightOutlined />} href={`/learn/courses/${resume.id}/lessons/${resume.nextLesson.id}`}>Tiếp tục học</Button>
           </Flex>
         </Card>
+        </div>
       )}
       <Tabs
         activeKey={tab}
@@ -63,31 +82,34 @@ export default function MyCoursesClient({ name, cards, categories }: { name: str
           { key: "done", label: `Đã học hết bài · ${cards.filter(finished).length}` },
         ]}
       />
-      <Flex gap={12} style={{ marginBottom: 20 }}>
+      <Flex gap={12} style={{ marginBottom: 16 }}>
         <Input.Search allowClear placeholder="Tìm khóa học của bạn..." style={{ width: 360 }} onChange={(e) => setQ(e.target.value)} />
         <Select allowClear placeholder="Tất cả danh mục" style={{ width: 200 }} value={cat} onChange={setCat} options={categories.map((c) => ({ value: c.id, label: c.name }))} />
       </Flex>
       {shown.length === 0 ? (
         <Card><Empty description={cards.length ? "Không có khóa học phù hợp." : "Bạn chưa được mở khóa học nào. Liên hệ quản trị viên nếu cần."} /></Card>
       ) : (
-        <Row gutter={[20, 20]}>
+        <Row gutter={[16, 16]} className="lh-stagger">
           {shown.map((c) => {
             const pct = c.lessonsTotal ? Math.round((c.lessonsDone / c.lessonsTotal) * 100) : 0;
             return (
-              <Col span={12} key={c.id}>
+              <Col span={8} key={c.id}>
                 <Card
                   hoverable
-                  cover={<img src={`/api/files/${c.coverImage}`} alt="" style={{ height: 200, objectFit: "cover" }} />}
-                  styles={{ body: { padding: 20 } }}
+                  className="lh-spotlight"
+                  onMouseMove={trackSpotlight}
+                  style={{ height: "100%" }}
+                  cover={<img src={`/api/files/${c.coverImage}`} alt="" style={{ aspectRatio: "16 / 9", objectFit: "cover" }} />}
+                  styles={{ body: { padding: 16 } }}
                 >
                   <Flex justify="space-between" align="center">
                     <Typography.Text strong style={{ color: token.colorPrimary, fontSize: 13 }}>{c.category}</Typography.Text>
                     {finished(c) ? <Tag color="success" icon={<CheckCircleOutlined />}>Đã học hết bài</Tag> : c.lessonsDone > 0 ? <Tag color="processing" icon={<SyncOutlined />}>Đang học</Tag> : <Tag>Chưa bắt đầu</Tag>}
                   </Flex>
-                  <Typography.Title level={4} style={{ margin: "10px 0 6px" }}>{c.title}</Typography.Title>
-                  <Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }}>{c.description}</Typography.Paragraph>
+                  <Typography.Title level={5} style={{ margin: "8px 0 4px" }}>{c.title}</Typography.Title>
+                  <Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ marginBottom: 8 }}>{c.description}</Typography.Paragraph>
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>{c.lessonsTotal} bài học · {c.quizzes} quiz</Typography.Text>
-                  <Flex justify="space-between" style={{ marginTop: 12 }}>
+                  <Flex justify="space-between" style={{ marginTop: 8 }}>
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>Đã học {c.lessonsDone} / {c.lessonsTotal} bài</Typography.Text>
                     <Typography.Text strong style={{ fontSize: 12 }}>{pct}%</Typography.Text>
                   </Flex>

@@ -12,7 +12,7 @@ export default async function DeniedPage({ searchParams }: { searchParams: Promi
     <Flex justify="center" align="center" style={{ minHeight: "100vh", padding: 24 }}>
       <Card style={{ width: 520 }}>
         <Flex vertical gap={12}>
-          {locked ? <LockOutlined style={{ fontSize: 28, color: "#83550B" }} /> : <StopOutlined style={{ fontSize: 28, color: "#B42318" }} />}
+          {locked ? <LockOutlined style={{ fontSize: 28, color: "var(--ant-color-warning)" }} /> : <StopOutlined style={{ fontSize: 28, color: "var(--ant-color-error)" }} />}
           <Title level={3} style={{ margin: 0 }}>{locked ? "Tài khoản của bạn đã bị khóa" : "Bạn chưa có quyền đăng nhập"}</Title>
           {email && <Text>Email đang dùng: {email}</Text>}
           {locked ? (

@@ -6,6 +6,7 @@ import { actionMember } from "@/lib/auth";
 import { fail, type ActionResult } from "@/lib/types";
 import { deadlineLock, hasCourseAccess } from "@/lib/access";
 import { checkCanStart, finalizeAttempt } from "@/lib/quiz";
+import { issueCertificates } from "@/lib/certificates";
 
 export async function completeLesson(lessonId: string): Promise<ActionResult> {
   const user = await actionMember();
@@ -18,8 +19,10 @@ export async function completeLesson(lessonId: string): Promise<ActionResult> {
     create: { userId: user.id, lessonId },
     update: {},
   });
+  const issued = await issueCertificates(user.id, [lesson.courseId]);
   revalidatePath(`/learn/courses/${lesson.courseId}`);
-  return { ok: true, message: "Đã đánh dấu học xong bài này." };
+  revalidatePath("/learn/certificates");
+  return { ok: true, message: issued ? "Bạn đã hoàn thành khóa học và nhận được chứng chỉ!" : "Đã đánh dấu học xong bài này." };
 }
 
 /** Starts (or resumes) an attempt; start time is server time (HLD 4.3). */

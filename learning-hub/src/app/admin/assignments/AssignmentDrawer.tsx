@@ -121,7 +121,7 @@ export default function AssignmentDrawer({
         onCancel={() => setMissing(null)}
         title={
           <Flex gap={8} align="center">
-            <WarningOutlined style={{ color: "#83550B" }} />
+            <WarningOutlined style={{ color: "var(--ant-color-warning)" }} />
             {missing?.list.length} người chưa có quyền truy cập khóa học này
           </Flex>
         }
@@ -138,7 +138,7 @@ export default function AssignmentDrawer({
         </Typography.Paragraph>
         <Flex vertical gap={8}>
           {missing?.list.map((m) => (
-            <Flex key={m.id} justify="space-between" style={{ padding: "8px 12px", borderRadius: 8, background: "var(--lh-bg)" }}>
+            <Flex key={m.id} justify="space-between" style={{ padding: "8px 12px", borderRadius: 8, background: "var(--ant-color-fill-tertiary)" }}>
               <Typography.Text strong>{m.name}</Typography.Text>
               <Typography.Text type="secondary">{m.group ?? "—"} · {m.email}</Typography.Text>
             </Flex>

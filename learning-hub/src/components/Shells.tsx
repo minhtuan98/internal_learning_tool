@@ -3,44 +3,37 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Avatar, Button, Dropdown, Flex, Layout, Menu, Tag, Tooltip, Typography, theme } from "antd";
-import {
-  AppstoreOutlined,
-  BarChartOutlined,
-  BookOutlined,
-  CalendarOutlined,
-  FolderOutlined,
-  LogoutOutlined,
-  MoonOutlined,
-  SafetyCertificateOutlined,
-  SunOutlined,
-  TeamOutlined,
-  UserOutlined,
-  CheckSquareOutlined,
-} from "@ant-design/icons";
+import { Avatar, Button, Dropdown, Flex, Layout, Tag, Tooltip, Typography } from "antd";
+import { LogoutOutlined, MoonOutlined, SmileOutlined, SunOutlined } from "@ant-design/icons";
 import { useThemeMode } from "./Providers";
-import { SIDER_WIDTH } from "@/theme/tokens";
+import { CrumbTrail, HeaderCrumbsProvider } from "./ui";
+import ParticleLogo from "./ParticleLogo";
+import { BRAND } from "@/lib/brand";
 
-const { Sider, Header, Content } = Layout;
+const { Content } = Layout;
 const { Text } = Typography;
 
 export type ShellUser = { name: string; email: string; avatarUrl: string | null; role: "ADMIN" | "MEMBER"; initials: string };
 
+/** Saigon Technology "S" mark drawn in particles (assembles on load, scatters under the pointer) + product name. */
 function Logo({ href }: { href: string }) {
-  const { token } = theme.useToken();
+  const { mode } = useThemeMode();
   return (
-    <Link href={href}>
+    <Link href={href} aria-label={`Learning Hub · ${BRAND.company}`}>
       <Flex align="center" gap={10}>
-        <span style={{ width: 32, height: 32, borderRadius: 8, background: token.colorPrimary, color: "#fff", display: "grid", placeItems: "center" }}>
-          <BookOutlined />
+        <ParticleLogo width={28} height={38} count={260} dot={1.15} steps={[{ kind: "mark" }]} repel={16} ink={mode === "dark" ? "#F2F8FB" : "#102030"} ariaLabel={BRAND.company} />
+        <span style={{ display: "grid", lineHeight: 1.15 }}>
+          <Text strong className="lh-display" style={{ fontSize: 16 }}>
+            Learning <span className="lh-accent-text">Hub</span>
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11, letterSpacing: 0.3 }}>{BRAND.company}</Text>
         </span>
-        <Text strong style={{ fontSize: 18 }}>Learning Hub</Text>
       </Flex>
     </Link>
   );
 }
 
-function ThemeToggle() {
+export function ThemeToggle() {
   const { mode, toggle } = useThemeMode();
   return (
     <Tooltip title="Đổi giao diện sáng / tối">
@@ -69,19 +62,20 @@ function UserMenu({ user }: { user: ShellUser }) {
                 <Text strong style={{ display: "block" }}>{user.name}</Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>{user.email}</Text>
                 <div style={{ marginTop: 6 }}>
-                  <Tag color={user.role === "ADMIN" ? "blue" : "default"}>{user.role === "ADMIN" ? "Quản trị viên" : "Thành viên"}</Tag>
+                  <Tag color={user.role === "ADMIN" ? "cyan" : "default"}>{user.role === "ADMIN" ? "Quản trị viên" : "Thành viên"}</Tag>
                 </div>
               </div>
             ),
           },
           { type: "divider" },
+          { key: "welcome", icon: <SmileOutlined />, label: <Link href="/welcome">Màn chào mừng</Link> },
           { key: "logout", icon: <LogoutOutlined />, label: "Đăng xuất", onClick: logout },
         ],
       }}
     >
-      <Button type="text" style={{ height: 40 }}>
+      <Button type="text" style={{ height: 36, paddingInline: 6 }}>
         <Flex align="center" gap={8}>
-          <Avatar size={30} src={user.avatarUrl ?? undefined}>{user.initials}</Avatar>
+          <Avatar size={26} src={user.avatarUrl ?? undefined}>{user.initials}</Avatar>
           <Text>{user.name}</Text>
         </Flex>
       </Button>
@@ -90,83 +84,74 @@ function UserMenu({ user }: { user: ShellUser }) {
 }
 
 const ADMIN_NAV = [
-  { key: "/admin/dashboard", icon: <AppstoreOutlined />, label: "Tổng quan" },
-  { key: "/admin/courses", icon: <BookOutlined />, label: "Khóa học" },
-  { key: "/admin/assignments", icon: <CalendarOutlined />, label: "Giao bài" },
-  { key: "/admin/users", icon: <UserOutlined />, label: "Người dùng" },
-  { key: "/admin/groups", icon: <TeamOutlined />, label: "Nhóm" },
-  { key: "/admin/categories", icon: <FolderOutlined />, label: "Danh mục" },
-  { key: "/admin/results", icon: <BarChartOutlined />, label: "Kết quả" },
+  { key: "/admin/dashboard", label: "Tổng quan" },
+  { key: "/admin/courses", label: "Khóa học" },
+  { key: "/admin/assignments", label: "Giao bài" },
+  { key: "/admin/users", label: "Người dùng" },
+  { key: "/admin/groups", label: "Nhóm" },
+  { key: "/admin/categories", label: "Danh mục" },
+  { key: "/admin/results", label: "Kết quả" },
+  { key: "/admin/certificates", label: "Chứng chỉ" },
 ];
 
-export function AdminShell({ user, memberCount, children }: { user: ShellUser; memberCount: number; children: ReactNode }) {
-  const pathname = usePathname();
-  const { token } = theme.useToken();
-  const active = ADMIN_NAV.find((n) => pathname.startsWith(n.key))?.key ?? "/admin/dashboard";
+/**
+ * "Night Glow" shell: no sider. A frosted pill nav floats at the top centre (logo left, account right),
+ * the active item carries a breathing glow. Breadcrumb moves into the page, above the title.
+ */
+function TopBar({ home, nav, active, user }: { home: string; nav: { key: string; label: string }[]; active: string; user: ShellUser }) {
   return (
-    <Layout style={{ minHeight: "100vh" }}>
-      <Sider width={SIDER_WIDTH} style={{ borderRight: `1px solid ${token.colorBorderSecondary}`, position: "sticky", top: 0, height: "100vh" }}>
-        <Flex vertical style={{ height: "100%", padding: "20px 16px" }} gap={24}>
-          <Logo href="/admin/dashboard" />
-          <div style={{ padding: "0 8px" }}>
-            <Text type="secondary" style={{ fontSize: 11, letterSpacing: 0.5 }}>WORKSPACE</Text>
-            <Text strong style={{ display: "block" }}>Acme Company</Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>{memberCount} người · Nội bộ</Text>
-          </div>
-          <Menu
-            mode="inline"
-            selectedKeys={[active]}
-            style={{ borderInlineEnd: "none" }}
-            items={ADMIN_NAV.map((n) => ({ key: n.key, icon: n.icon, label: <Link href={n.key}>{n.label}</Link> }))}
-          />
-          <div style={{ marginTop: "auto", padding: 14, borderRadius: 8, background: token.colorFillQuaternary }}>
-            <SafetyCertificateOutlined />
-            <Text strong style={{ display: "block", marginTop: 6, fontSize: 13 }}>Không gian quản trị</Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>Nội dung, quyền truy cập và kết quả học tập.</Text>
-          </div>
-        </Flex>
-      </Sider>
-      <Layout>
-        <Header style={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, position: "sticky", top: 0, zIndex: 10 }}>
-          <Flex justify="flex-end" align="center" gap={12} style={{ height: "100%" }}>
-            <ThemeToggle />
-            <UserMenu user={user} />
-          </Flex>
-        </Header>
-        <Content style={{ padding: "32px 40px 48px" }}>{children}</Content>
-      </Layout>
-    </Layout>
+    <header className="ng-topbar">
+      <div className="ng-topbar__side"><Logo href={home} /></div>
+      <nav className="ng-pillnav" aria-label="Điều hướng chính">
+        {nav.map((n) => (
+          <Link key={n.key} href={n.key} className={`ng-pillnav__item${n.key === active ? " is-active" : ""}`} aria-current={n.key === active ? "page" : undefined}>
+            {n.key === active && <span className="ng-pillnav__glow" aria-hidden />}
+            <span className="ng-pillnav__label">{n.label}</span>
+          </Link>
+        ))}
+      </nav>
+      <div className="ng-topbar__side ng-topbar__side--end">
+        <ThemeToggle />
+        <UserMenu user={user} />
+      </div>
+    </header>
+  );
+}
+
+export function AdminShell({ user, children }: { user: ShellUser; memberCount: number; children: ReactNode }) {
+  const pathname = usePathname();
+  const activeNav = ADMIN_NAV.find((n) => pathname.startsWith(n.key)) ?? ADMIN_NAV[0];
+  return (
+    <HeaderCrumbsProvider fallback={[{ title: "Không gian học tập" }, { title: activeNav.label }]}>
+      {(crumbs) => (
+        <Layout style={{ minHeight: "100vh" }}>
+          <TopBar home="/admin/dashboard" nav={ADMIN_NAV} active={activeNav.key} user={user} />
+          <Content className="ng-content">
+            <CrumbTrail crumbs={crumbs} style={{ marginBottom: 10 }} />
+            {children}
+          </Content>
+        </Layout>
+      )}
+    </HeaderCrumbsProvider>
   );
 }
 
 export function MemberShell({ user, children }: { user: ShellUser; children: ReactNode }) {
   const pathname = usePathname();
-  const { token } = theme.useToken();
   const nav = [
-    { key: "/learn", label: "Việc của tôi", icon: <CheckSquareOutlined /> },
-    { key: "/learn/courses", label: "Khóa học của tôi", icon: <BookOutlined /> },
+    { key: "/learn", label: "Việc của tôi" },
+    { key: "/learn/courses", label: "Khóa học của tôi" },
+    { key: "/learn/certificates", label: "Chứng chỉ" },
   ];
-  const active = pathname.startsWith("/learn/courses") || pathname.startsWith("/learn/quizzes") || pathname.startsWith("/learn/attempts") ? "/learn/courses" : "/learn";
+  const active = pathname.startsWith("/learn/certificates")
+    ? "/learn/certificates"
+    : pathname.startsWith("/learn/courses") || pathname.startsWith("/learn/quizzes") || pathname.startsWith("/learn/attempts")
+      ? "/learn/courses"
+      : "/learn";
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      <Header style={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, position: "sticky", top: 0, zIndex: 10 }}>
-        <Flex align="center" gap={32} style={{ height: "100%", maxWidth: 1200, margin: "0 auto" }}>
-          <Logo href="/learn" />
-          <Menu
-            mode="horizontal"
-            selectedKeys={[active]}
-            style={{ flex: 1, borderBottom: "none", background: "transparent" }}
-            items={nav.map((n) => ({ key: n.key, icon: n.icon, label: <Link href={n.key}>{n.label}</Link> }))}
-          />
-          <Flex gap={12} align="center">
-            <ThemeToggle />
-            <UserMenu user={user} />
-          </Flex>
-        </Flex>
-      </Header>
-      <Content style={{ padding: "32px 24px 48px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>{children}</div>
-      </Content>
+      <TopBar home="/learn" nav={nav} active={active} user={user} />
+      <Content className="ng-content ng-content--narrow">{children}</Content>
     </Layout>
   );
 }

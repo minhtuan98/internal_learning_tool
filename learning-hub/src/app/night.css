@@ -1,0 +1,251 @@
+/*
+ * "Night Glow" theme layer (dark mode; light mode keeps the Aurora look). See DESIGN_SYSTEM.md → Night Glow.
+ * Visual language taken from the reference the user liked: near-black canvas, one glowing accent,
+ * frosted floating nav with a breathing glow, metallic headings, pill buttons whose light follows the
+ * pointer, panels lit by a beam on their top edge, content that rises in on scroll.
+ * Accent = Saigon Technology teal (#03B0BC) with a mint highlight, so the brand stays.
+ */
+:root[data-theme="dark"] {
+  --ng-bg: #05070d;
+  --ng-accent: #03b0bc;
+  --ng-accent-rgb: 3, 176, 188;
+  --ng-mint: #6ff3df;
+  --ng-mint-rgb: 111, 243, 223;
+  --ng-text: #e8ecf5;
+  --ng-border: rgba(255, 255, 255, 0.07);
+  --ng-border-hi: rgba(255, 255, 255, 0.18);
+  --ng-ease: cubic-bezier(0.33, 1, 0.68, 1);
+
+  --lh-page-bg: var(--ng-bg);
+  --lh-page-text: var(--ng-text);
+  --lh-glass-bg: rgba(10, 13, 20, 0.55);
+  --lh-glass-border: var(--ng-border);
+  --lh-glass-highlight: rgba(255, 255, 255, 0.05);
+  --lh-title-grad: radial-gradient(855.92% 46.42% at 48.25% 50.79%, #ffffff 0%, #9a9a9a 100%);
+  --lh-glow: 0 0 24px -6px rgba(var(--ng-accent-rgb), 0.55);
+  --lh-glow-strong: 0 0 0 1px rgba(var(--ng-accent-rgb), 0.35), 0 0 36px -6px rgba(var(--ng-accent-rgb), 0.6);
+}
+
+/* ---------- Canvas: one soft light from the top, no grid ---------- */
+:root[data-theme="dark"] body::before {
+  background:
+    radial-gradient(44rem 20rem at 50% -7rem, rgba(var(--ng-accent-rgb), 0.30), transparent 70%),
+    radial-gradient(90rem 40rem at 50% -20rem, rgba(var(--ng-accent-rgb), 0.12), transparent 70%),
+    radial-gradient(50rem 26rem at 50% 115%, rgba(var(--ng-accent-rgb), 0.05), transparent 70%);
+  animation: none;
+}
+:root[data-theme="dark"] body::after { display: none; }
+
+/* ---------- Type: metallic headings, lighter weight ---------- */
+:root[data-theme="dark"] :is(h1, h2, h3).ant-typography { font-weight: 500 !important; letter-spacing: -0.02em; }
+:root[data-theme="dark"] .lh-accent-text { background: linear-gradient(90deg, var(--ng-mint), var(--ng-accent)); -webkit-background-clip: text; background-clip: text; }
+
+/* ---------- Floating frosted header with a breathing glow ---------- */
+:root[data-theme="dark"] .ant-layout-header.lh-glass {
+  margin: 10px 16px 0;
+  top: 10px !important;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)), rgba(18, 18, 18, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.03), 0 8px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+}
+:root[data-theme="dark"] .ant-layout-header.lh-glass::after {
+  content: ""; position: absolute; z-index: -1; left: 50%; bottom: 0; width: 360px; height: 140px; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(var(--ng-accent-rgb), 0.55), transparent);
+  filter: blur(10px) brightness(1.3);
+  transform: translate(-50%, 50%) scale(0.92);
+  animation: ng-nav-breathe 4s ease-in-out infinite;
+}
+@keyframes ng-nav-breathe {
+  0%, 100% { opacity: 0.5; transform: translate(-50%, 50%) scale(0.92); }
+  50% { opacity: 1; transform: translate(-50%, 50%) scale(1.03); }
+}
+/* Member top menu: the active tab's underline becomes a glowing beam */
+:root[data-theme="dark"] .ant-menu-horizontal > .ant-menu-item-selected::after {
+  border-bottom-color: var(--ng-mint) !important;
+  box-shadow: 0 0 12px 1px rgba(var(--ng-accent-rgb), 0.9);
+}
+:root[data-theme="dark"] .ant-menu-horizontal > .ant-menu-item-selected { color: var(--ng-text) !important; }
+
+/* ---------- Admin sider: dark glass column, active item lit ---------- */
+:root[data-theme="dark"] .ant-layout-sider.lh-glass { background: rgba(5, 7, 13, 0.6) !important; border-right-color: var(--ng-border) !important; }
+:root[data-theme="dark"] .ant-menu-inline .ant-menu-item-selected {
+  background: rgba(var(--ng-accent-rgb), 0.1) !important;
+  color: var(--ng-text) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--ng-accent-rgb), 0.28), 0 0 26px -8px rgba(var(--ng-accent-rgb), 0.8);
+}
+:root[data-theme="dark"] .ant-menu-inline .ant-menu-item-selected .anticon { color: var(--ng-mint); filter: drop-shadow(0 0 6px rgba(var(--ng-accent-rgb), 0.9)); }
+
+/* ---------- Cards: almost-transparent panels, hairline border ---------- */
+:root[data-theme="dark"] .ant-card:not(.ant-card-type-inner) {
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  border-color: var(--ng-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 24px 48px -28px rgba(0, 0, 0, 0.9);
+}
+:root[data-theme="dark"] .ant-card .ant-card-head { border-bottom-color: var(--ng-border); }
+
+/* Lit panels (KPI, "continue learning", login, titled panels): a bright beam on the top edge,
+ * light blooming above it (breathes, 6s) and spilling inside */
+:root[data-theme="dark"] :is(.lh-kpi, .ant-card.lh-glass-card, .ant-card.lh-login-card, .ng-content .ant-card:has(> .ant-card-head)) {
+  position: relative; overflow: visible !important;
+  background:
+    radial-gradient(60% 70% at 50% 0%, rgba(var(--ng-accent-rgb), 0.16), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.008)) !important;
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(var(--ng-mint-rgb), 0.22), 0 30px 60px -30px rgba(0, 0, 0, 0.9);
+}
+:root[data-theme="dark"] :is(.lh-kpi, .ant-card.lh-glass-card, .ant-card.lh-login-card, .ng-content .ant-card:has(> .ant-card-head))::before {
+  content: ""; position: absolute; z-index: 2; inset: -1px 10% auto 10%; height: 2px; padding: 0; border-radius: 0; opacity: 1;
+  background: radial-gradient(50% 100% at 50% 50%, #fff 0%, var(--ng-mint) 22%, rgba(var(--ng-accent-rgb), 0.8) 50%, transparent 100%);
+  mix-blend-mode: plus-lighter; -webkit-mask: none; mask: none; pointer-events: none;
+}
+:root[data-theme="dark"] :is(.lh-kpi, .ant-card.lh-glass-card, .ant-card.lh-login-card, .ng-content .ant-card:has(> .ant-card-head))::after {
+  content: ""; position: absolute; z-index: 0; left: 50%; top: 0; width: 70%; height: 70px; pointer-events: none;
+  background: radial-gradient(50% 100% at 50% 100%, rgba(var(--ng-accent-rgb), 0.55), rgba(var(--ng-accent-rgb), 0.12) 50%, transparent 75%);
+  filter: blur(6px);
+  transform: translate(-50%, -100%);
+  animation: ng-bloom 6s ease-in-out infinite;
+}
+:root[data-theme="dark"] :is(.lh-kpi, .ant-card.lh-glass-card, .ant-card.lh-login-card, .ng-content .ant-card:has(> .ant-card-head)) > :is(.ant-card-body, .ant-card-head) { position: relative; z-index: 1; }
+@keyframes ng-bloom {
+  0%, 100% { opacity: 0.7; transform: translate(-50%, -100%) scaleX(1); }
+  50% { opacity: 1; transform: translate(-50%, -96%) scaleX(0.78); }
+}
+
+/* Dot-matrix texture on the hero panel, fading out to the left */
+:root[data-theme="dark"] .ant-card.lh-glass-card > .ant-card-body::before {
+  content: ""; position: absolute; inset: 0 0 0 45%; pointer-events: none; z-index: -1;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.10) 1px, transparent 1.4px);
+  background-size: 9px 9px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 60%); mask-image: linear-gradient(90deg, transparent, #000 60%);
+}
+:root[data-theme="dark"] .lh-glass-orb { opacity: 0.18; }
+:root[data-theme="dark"] .ant-card.lh-glass-card { background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)); }
+
+/* Clickable cards: no lift, the border lights up instead */
+:root[data-theme="dark"] .lh-clickable:hover { transform: none; border-color: rgba(var(--ng-accent-rgb), 0.45) !important; box-shadow: 0 0 0 1px rgba(var(--ng-accent-rgb), 0.25), 0 0 40px -12px rgba(var(--ng-accent-rgb), 0.7); }
+
+/* ---------- Buttons ---------- */
+:root[data-theme="dark"] .ant-btn { border-radius: 999px; }
+:root[data-theme="dark"] .ant-btn.ant-btn-block { border-radius: 12px; } /* multi-line list buttons (quick sign-in) */
+
+/* Primary = light pill with an outer teal ring; a light core follows the pointer (--lx set by NightFx) */
+:root[data-theme="dark"] .ant-btn.ant-btn-color-primary.ant-btn-variant-solid:not(:disabled):not(.ant-btn-disabled) {
+  --lx: 50%;
+  color: #05070d !important;
+  background:
+    radial-gradient(70px 44px at var(--lx) 50%, rgba(255, 255, 255, 0.95), rgba(140, 255, 232, 0.5) 45%, transparent 78%),
+    linear-gradient(180deg, #eef1f5, #c8ced6) !important;
+  background-size: auto !important;
+  border: 1px solid rgba(255, 255, 255, 0.65) !important;
+  box-shadow:
+    0 0 0 1px rgba(var(--ng-accent-rgb), 0.35),
+    0 0 14px 1px rgba(var(--ng-accent-rgb), 0.5),
+    8px 0 22px -6px rgba(111, 243, 223, 0.65);
+  transition: box-shadow 0.25s var(--ng-ease);
+}
+:root[data-theme="dark"] .ant-btn.ant-btn-color-primary.ant-btn-variant-solid:not(:disabled):not(.ant-btn-disabled):is(:hover, :focus-visible) {
+  box-shadow:
+    0 0 0 1px rgba(var(--ng-accent-rgb), 0.55),
+    0 0 22px 3px rgba(var(--ng-accent-rgb), 0.65),
+    10px 0 30px -4px rgba(111, 243, 223, 0.8);
+}
+:root[data-theme="dark"] .ant-btn:focus-visible { outline: 2px solid var(--ng-mint) !important; outline-offset: 3px; }
+
+/* Secondary = ghost pill */
+:root[data-theme="dark"] .ant-btn.ant-btn-color-default:is(.ant-btn-variant-outlined, .ant-btn-variant-dashed):not(:disabled) {
+  background: transparent; border-color: var(--ng-border-hi); color: var(--ng-text);
+}
+:root[data-theme="dark"] .ant-btn.ant-btn-color-default:is(.ant-btn-variant-outlined, .ant-btn-variant-dashed):not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.32); color: #fff;
+}
+
+/* ---------- Tags / badges: pills ---------- */
+:root[data-theme="dark"] .ant-tag { border-radius: 999px; padding-inline: 10px; }
+:root[data-theme="dark"] .ant-tag.ant-tag-cyan { background: rgba(2, 27, 25, 0.55); border: 1px solid var(--ng-border-hi); color: #cff2ec; }
+
+/* ---------- Tables: hairlines only ---------- */
+:root[data-theme="dark"] .ant-table-thead > tr > th { background: transparent !important; color: var(--ant-color-text-tertiary) !important; font-weight: 500; border-bottom-color: var(--ng-border) !important; }
+:root[data-theme="dark"] .ant-table-thead > tr > th::before { display: none; }
+:root[data-theme="dark"] .ant-table-tbody > tr > td { border-bottom-color: var(--ng-border) !important; }
+
+/* ---------- Progress, tabs, segmented: glowing accent ---------- */
+:root[data-theme="dark"] .ant-progress-line:not(.ant-progress-status-success):not(.ant-progress-status-exception) .ant-progress-track {
+  background: linear-gradient(90deg, rgba(var(--ng-accent-rgb), 0.35), var(--ng-accent) 70%, var(--ng-mint)) !important;
+  box-shadow: 0 0 10px rgba(var(--ng-accent-rgb), 0.6);
+}
+:root[data-theme="dark"] .ant-progress-rail { background: rgba(255, 255, 255, 0.06) !important; }
+:root[data-theme="dark"] .ant-tabs-ink-bar { background: var(--ng-mint) !important; box-shadow: 0 0 10px rgba(var(--ng-accent-rgb), 0.9); }
+:root[data-theme="dark"] .ant-segmented { background: rgba(255, 255, 255, 0.04); border: 1px solid var(--ng-border); border-radius: 999px; }
+:root[data-theme="dark"] .ant-segmented .ant-segmented-item, :root[data-theme="dark"] .ant-segmented .ant-segmented-thumb { border-radius: 999px; }
+:root[data-theme="dark"] .ant-segmented .ant-segmented-item-selected { background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+
+/* ---------- Course covers: toned down so the bright art sits in the night palette ---------- */
+:root[data-theme="dark"] .ant-card-cover { position: relative; }
+:root[data-theme="dark"] .ant-card-cover img { filter: saturate(0.8) brightness(0.88); transition: filter 0.4s var(--ng-ease); }
+:root[data-theme="dark"] .ant-card-cover::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, transparent 60%, rgba(5, 7, 13, 0.3)); }
+:root[data-theme="dark"] .ant-card:hover .ant-card-cover img { filter: saturate(0.95) brightness(0.92); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="dark"] .ant-layout-header.lh-glass::after,
+  :root[data-theme="dark"] :is(.lh-kpi, .ant-card.lh-glass-card, .ant-card.lh-login-card, .ng-content .ant-card:has(> .ant-card-head))::after,
+  .ng-pillnav__glow { animation: none; opacity: 0.85; }
+}
+
+/* ---------- Top bar: logo · floating pill nav · account (replaces the sider) ---------- */
+.ng-topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 16px;
+  padding: 14px 28px;
+  background: linear-gradient(var(--lh-page-bg) 35%, transparent);
+}
+.ng-topbar__side { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ng-topbar__side--end { justify-content: flex-end; }
+.ng-pillnav {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; gap: 2px; padding: 5px; border-radius: 16px;
+  background: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)), rgba(18, 18, 18, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.03), 0 8px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8);
+}
+.ng-pillnav__item {
+  position: relative; padding: 8px 16px; border-radius: 11px; white-space: nowrap; font-size: 14px;
+  color: rgba(232, 236, 245, 0.7); text-decoration: none;
+  transition: color 0.2s, background-color 0.2s;
+}
+.ng-pillnav__item:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
+.ng-pillnav__item.is-active { color: #fff; }
+.ng-pillnav__item:focus-visible { outline: 2px solid var(--ng-mint, #2cc5cf); outline-offset: 2px; }
+.ng-pillnav__label { position: relative; z-index: 1; }
+.ng-pillnav__glow {
+  position: absolute; z-index: 0; left: 50%; bottom: 0; width: 150px; height: 84px; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(3, 176, 188, 0.8), rgba(3, 176, 188, 0.25) 55%, transparent);
+  filter: blur(10px) brightness(1.4);
+  transform: translate(-50%, 62%) scale(0.92);
+  animation: ng-pill-breathe 4s ease-in-out infinite;
+}
+@keyframes ng-pill-breathe {
+  0%, 100% { opacity: 0.55; transform: translate(-50%, 62%) scale(0.92); }
+  50% { opacity: 1; transform: translate(-50%, 62%) scale(1.04); }
+}
+:root[data-theme="light"] .ng-pillnav { background: rgba(255, 255, 255, 0.75); border-color: rgba(16, 32, 48, 0.1); box-shadow: 0 8px 24px rgba(16, 32, 48, 0.08); }
+:root[data-theme="light"] .ng-pillnav__item { color: #4a5d70; }
+:root[data-theme="light"] .ng-pillnav__item.is-active, :root[data-theme="light"] .ng-pillnav__item:hover { color: #102030; }
+
+/* 8 admin items: tighten below 1440px so the pill never runs into the account controls */
+@media (max-width: 1439px) {
+  .ng-topbar { padding: 14px 20px; gap: 12px; }
+  .ng-pillnav__item { padding: 8px 11px; font-size: 13.5px; }
+}
+
+.ng-content { width: 100%; max-width: 1400px; margin: 0 auto; padding: 18px 48px 64px; }
+.ng-content--narrow { max-width: 1200px; }
+
+/* Bigger, lighter page titles and figures */
+:root[data-theme="dark"] .ng-content h2.ant-typography { font-size: 40px !important; line-height: 1.15 !important; }
+:root[data-theme="dark"] .lh-kpi .ant-statistic-content { font-size: 34px; font-weight: 500; }

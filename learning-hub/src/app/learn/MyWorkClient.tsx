@@ -36,7 +36,7 @@ export default function MyWorkClient({ items }: { items: Item[] }) {
   return (
     <>
       <PageHeader title="Việc của tôi" description="Khóa học bạn được giao, sắp xếp theo hạn chót." />
-      <Row gutter={16} style={{ marginBottom: 24 }}>
+      <Row gutter={16} className="lh-stagger" style={{ marginBottom: 16 }}>
         <Col span={8}><KpiCard label="Cần làm" value={todo} /></Col>
         <Col span={8}><KpiCard label="Quá hạn" value={sections[0].items.length} danger={sections[0].items.length > 0} /></Col>
         <Col span={8}><KpiCard label="Đã hoàn thành" value={sections[3].items.length} /></Col>
@@ -51,9 +51,9 @@ export default function MyWorkClient({ items }: { items: Item[] }) {
         sections
           .filter((s) => s.items.length > 0)
           .map((s) => (
-            <div key={s.key} style={{ marginBottom: 28 }}>
+            <div key={s.key} style={{ marginBottom: 16 }}>
               <Typography.Title level={5} style={{ marginBottom: 12 }}>{s.title} · {s.items.length}</Typography.Title>
-              <Flex vertical gap={12}>
+              <Flex vertical gap={12} className="lh-stagger">
                 {s.items.map((i) => <WorkCard key={i.id} item={i} />)}
               </Flex>
             </div>
@@ -80,7 +80,7 @@ function WorkCard({ item: i }: { item: Item }) {
 
   return (
     <Card styles={{ body: { padding: 16 } }}>
-      <Flex gap={20} align="center">
+      <Flex gap={16} align="center">
         <img src={`/api/files/${i.coverImage}`} alt="" style={{ width: 140, height: 92, objectFit: "cover", borderRadius: 8, flexShrink: 0, filter: i.hasAccess ? undefined : "grayscale(1)" }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <Flex gap={8} align="center" wrap>

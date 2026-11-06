@@ -60,8 +60,8 @@ export function RichTextEditor({ value, onChange }: { value: string; onChange: (
   );
 
   return (
-    <div className="lh-editor" style={{ border: "1px solid var(--lh-border)", borderRadius: 8, background: "var(--lh-surface)" }}>
-      <Flex gap={4} align="center" style={{ padding: 8, borderBottom: "1px solid var(--lh-border)" }} wrap>
+    <div className="lh-editor" style={{ border: "1px solid var(--ant-color-border)", borderRadius: 8, background: "var(--ant-color-bg-container)" }}>
+      <Flex gap={4} align="center" style={{ padding: 8, borderBottom: "1px solid var(--ant-color-border)" }} wrap>
         {editor && (
           <>
             {btn("In đậm", <BoldOutlined />, editor.isActive("bold"), () => editor.chain().focus().toggleBold().run())}
@@ -91,7 +91,7 @@ export function CoverUpload({ value, onChange }: { value?: string; onChange?: (n
   useEffect(() => setPreview(value ? `/api/files/${value}` : undefined), [value]);
   return (
     <Flex gap={16} align="center">
-      <div style={{ width: 160, height: 96, borderRadius: 8, border: "1px dashed var(--lh-border)", overflow: "hidden", display: "grid", placeItems: "center", background: "var(--lh-bg)" }}>
+      <div style={{ width: 160, height: 96, borderRadius: 8, border: "1px dashed var(--ant-color-border)", overflow: "hidden", display: "grid", placeItems: "center", background: "var(--ant-color-fill-tertiary)" }}>
         {preview ? <img src={preview} alt="Ảnh bìa" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <PictureOutlined style={{ fontSize: 24, opacity: 0.4 }} />}
       </div>
       <div>

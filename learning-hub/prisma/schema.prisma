@@ -4,7 +4,9 @@
 // and enforced in src/lib/types.ts.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // rhel-openssl-3.0.x = Vercel serverless runtime (demo deployment)
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -31,6 +33,7 @@ model User {
   attempts          Attempt[]
   progress          LessonProgress[]
   assignmentTargets AssignmentTarget[]
+  certificates      Certificate[]
 }
 
 model Group {
@@ -63,8 +66,9 @@ model Course {
 
   lessons     Lesson[]
   quizzes     Quiz[]
-  access      CourseAccess[]
-  assignments Assignment[]
+  access       CourseAccess[]
+  assignments  Assignment[]
+  certificates Certificate[]
 }
 
 // One row per member OR per group (exactly one of userId / groupId).
@@ -225,4 +229,37 @@ model AiCallLog {
   questionCount Int?
   error         String?
   createdAt     DateTime @default(now())
+}
+
+// Certificate of completion: issued once per member per course when the course is complete
+// (all lessons learned + every published quiz passed). Text is snapshotted at issue time so a
+// certificate never changes after it is issued (renamed course, new signer, ...).
+model Certificate {
+  id            String   @id @default(cuid())
+  number        String   @unique // e.g. "22/GCN-IMS.2026" = <seq in year>/GCN-<code>.<year>
+  seq           Int
+  year          Int
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  courseId      String
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  recipientName String
+  courseTitle   String
+  completedAt   DateTime // "Held on" date = when the course became complete
+  signerName    String
+  signerTitle   String
+  sealCode      String // e.g. IMS
+  sealLabel     String // e.g. INTEGRATED MANAGEMENT SYSTEM
+  sealRing      String // text around the seal
+  issuedAt      DateTime @default(now())
+
+  @@unique([userId, courseId])
+  @@unique([year, seq])
+}
+
+// App-wide settings edited by admins (key → value), e.g. certificate signer.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

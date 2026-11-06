@@ -1,8 +1,9 @@
 "use client";
 
+import { useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button, Card, Col, Empty, Flex, Progress, Row, Select, Table, Typography, theme } from "antd";
+import { Button, Card, Col, Empty, Flex, Progress, Row, Select, Spin, Table, Typography, theme } from "antd";
 import { ClearOutlined } from "@ant-design/icons";
 import { BarList, FootNote, KpiCard, PageHeader, StackedBar } from "@/components/ui";
 import { daysOverdue, fmtDateTime } from "@/lib/format";
@@ -14,13 +15,15 @@ type Opt = { id: string; title?: string; name?: string };
 export default function DashboardClient({ stats, courses, groups, filter }: { stats: Stats; courses: Opt[]; groups: Opt[]; filter: { course: string | null; group: string | null; days: number } }) {
   const router = useRouter();
   const { token } = theme.useToken();
+  const [pending, startTransition] = useTransition(); // same-route navigation: loading.tsx does not show, so dim with Spin
+  const go = (href: string) => startTransition(() => router.push(href));
   const setFilter = (k: string, v: string | number | null) => {
     const sp = new URLSearchParams();
     const next = { ...filter, [k]: v };
     if (next.course) sp.set("course", next.course);
     if (next.group) sp.set("group", next.group);
     if (next.days !== 30) sp.set("days", String(next.days));
-    router.push(`/admin/dashboard${sp.size ? `?${sp}` : ""}`);
+    go(`/admin/dashboard${sp.size ? `?${sp}` : ""}`);
   };
   const filtered = filter.course || filter.group || filter.days !== 30;
   const noData = stats.completion.total === 0 && stats.passRate.total === 0 && stats.ai.reviewed === 0;
@@ -28,18 +31,19 @@ export default function DashboardClient({ stats, courses, groups, filter }: { st
   return (
     <>
       <PageHeader title="Tổng quan" description="Theo dõi tiến độ học, kết quả quiz và chất lượng câu hỏi AI." />
-      <Flex gap={12} style={{ marginBottom: 20 }} wrap>
+      <Flex gap={12} style={{ marginBottom: 16 }} wrap>
         <Select allowClear placeholder="Tất cả khóa học" style={{ width: 240 }} value={filter.course} onChange={(v) => setFilter("course", v ?? null)} options={courses.map((c) => ({ value: c.id, label: c.title }))} />
         <Select allowClear placeholder="Tất cả nhóm" style={{ width: 180 }} value={filter.group} onChange={(v) => setFilter("group", v ?? null)} options={groups.map((g) => ({ value: g.id, label: g.name }))} />
         <Select style={{ width: 160 }} value={filter.days} onChange={(v) => setFilter("days", v)} options={[7, 30, 90, 365].map((d) => ({ value: d, label: `${d} ngày qua` }))} />
-        {filtered && <Button icon={<ClearOutlined />} onClick={() => router.push("/admin/dashboard")}>Xóa bộ lọc</Button>}
+        {filtered && <Button icon={<ClearOutlined />} onClick={() => go("/admin/dashboard")}>Xóa bộ lọc</Button>}
       </Flex>
 
+      <Spin spinning={pending} delay={150} description="Đang cập nhật số liệu…">
       {noData ? (
         <Card><Empty description={filtered ? "Không có dữ liệu cho bộ lọc này." : "Chưa có hoạt động học trong khoảng thời gian này."} /></Card>
       ) : (
         <>
-          <Row gutter={[16, 16]}>
+          <Row gutter={[16, 16]} className="lh-stagger">
             <Col span={6}>
               <KpiCard label="Tỷ lệ hoàn thành bài học" value={stats.completion.rate} suffix="%" hint={`${stats.completion.done} / ${stats.completion.total} bài`} definition="Số bài đã học xong / tổng số bài trong các khóa đã xuất bản mà thành viên được mở quyền." href="/admin/results?tab=progress" />
             </Col>
@@ -108,6 +112,7 @@ export default function DashboardClient({ stats, courses, groups, filter }: { st
           </Card>
         </>
       )}
+      </Spin>
       <FootNote>Hoàn thành một khóa được giao = học hết bài và đạt mọi quiz đã xuất bản của khóa (giả định, chờ Product Owner xác nhận).</FootNote>
     </>
   );

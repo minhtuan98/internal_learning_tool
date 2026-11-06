@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { Alert, Button, Card, Divider, Flex, Input, Tag, Typography } from "antd";
-import { BookOutlined, GoogleOutlined, LoginOutlined } from "@ant-design/icons";
+import { GoogleOutlined, LoginOutlined } from "@ant-design/icons";
 import { devSignIn } from "@/server/auth-actions";
+import ParticleLogo from "@/components/ParticleLogo";
+import { useThemeMode } from "@/components/Providers";
+import { BRAND } from "@/lib/brand";
 
 const { Title, Text } = Typography;
 
@@ -16,6 +19,7 @@ const ERRORS: Record<string, string> = {
 };
 
 export default function LoginClient({ google, dev, error, users }: { google: boolean; dev: boolean; error?: string; users: U[] }) {
+  const { mode } = useThemeMode();
   const [busy, setBusy] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const go = async (e: string) => {
@@ -26,13 +30,14 @@ export default function LoginClient({ google, dev, error, users }: { google: boo
   return (
     <Flex justify="center" align="center" style={{ minHeight: "100vh", padding: 24 }}>
       <Flex vertical gap={16} style={{ width: 480 }}>
-        <Card>
+        <Card className="lh-glow-border lh-login-card">
           <Flex vertical align="center" gap={8} style={{ textAlign: "center" }}>
-            <span style={{ width: 48, height: 48, borderRadius: 12, background: "#214E91", color: "#fff", display: "grid", placeItems: "center", fontSize: 22 }}>
-              <BookOutlined />
-            </span>
-            <Title level={3} style={{ margin: "8px 0 0" }}>Learning Hub</Title>
-            <Text type="secondary">Nền tảng học tập nội bộ của Acme Company.</Text>
+            <ParticleLogo width={220} height={150} count={900} dot={1.4} repel={50} steps={[{ kind: "sphere" }, { kind: "mark" }]} hold={3200} ink={mode === "dark" ? "#F2F8FB" : "#102030"} />
+            <Tag variant="filled" color="cyan" style={{ marginTop: 4, marginInlineEnd: 0, borderRadius: 999 }}>✦ {BRAND.company}</Tag>
+            <Title level={2} style={{ margin: "4px 0 0", fontWeight: 600 }}>
+              <span className="lh-gradient-text">Learning Hub</span>
+            </Title>
+            <Text type="secondary">Học, làm bài kiểm tra và theo dõi tiến độ tại {BRAND.company}, tất cả ở một nơi.</Text>
           </Flex>
           {error && <Alert type="error" showIcon title={ERRORS[error] ?? "Có lỗi khi đăng nhập."} style={{ marginTop: 20 }} />}
           <Button
@@ -71,7 +76,7 @@ export default function LoginClient({ google, dev, error, users }: { google: boo
                     </span>
                     <Flex gap={4}>
                       {u.status === "LOCKED" && <Tag>Đã khóa</Tag>}
-                      <Tag color={u.role === "ADMIN" ? "blue" : "default"}>{u.role === "ADMIN" ? "Admin" : "Member"}</Tag>
+                      <Tag color={u.role === "ADMIN" ? "cyan" : "default"}>{u.role === "ADMIN" ? "Admin" : "Member"}</Tag>
                     </Flex>
                   </Flex>
                 </Button>

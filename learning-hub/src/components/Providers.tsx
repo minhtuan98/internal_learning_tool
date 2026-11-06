@@ -6,11 +6,12 @@ import viVN from "antd/locale/vi_VN";
 import dayjs from "dayjs";
 import "dayjs/locale/vi";
 import { themeConfig } from "@/theme/tokens";
+import NightFx from "./NightFx";
 
 dayjs.locale("vi");
 
 type Mode = "light" | "dark";
-const ThemeModeContext = createContext<{ mode: Mode; toggle: () => void }>({ mode: "light", toggle: () => {} });
+const ThemeModeContext = createContext<{ mode: Mode; toggle: () => void }>({ mode: "dark", toggle: () => {} });
 export const useThemeMode = () => useContext(ThemeModeContext);
 
 export default function Providers({ initialMode, children }: { initialMode: Mode; children: ReactNode }) {
@@ -24,7 +25,10 @@ export default function Providers({ initialMode, children }: { initialMode: Mode
   return (
     <ThemeModeContext.Provider value={{ mode, toggle }}>
       <ConfigProvider locale={viVN} theme={themeConfig(mode)}>
-        <App>{children}</App>
+        <App>
+          <NightFx />
+          {children}
+        </App>
       </ConfigProvider>
     </ThemeModeContext.Provider>
   );

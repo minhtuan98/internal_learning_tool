@@ -11,6 +11,7 @@ import {
   MinusCircleOutlined as MinusCircleOutlinedIcon,
   PlayCircleOutlined as PlayCircleOutlinedIcon,
   StopOutlined as StopOutlinedIcon,
+  TrophyOutlined as TrophyOutlinedIcon,
 } from "@ant-design/icons";
 
 export const CheckCircleFilled = CheckCircleFilledIcon;
@@ -20,3 +21,4 @@ export const LockOutlined = LockOutlinedIcon;
 export const MinusCircleOutlined = MinusCircleOutlinedIcon;
 export const PlayCircleOutlined = PlayCircleOutlinedIcon;
 export const StopOutlined = StopOutlinedIcon;
+export const TrophyOutlined = TrophyOutlinedIcon;

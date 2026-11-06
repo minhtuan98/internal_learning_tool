@@ -2,11 +2,12 @@
 
 /**
  * Shared design-system components (Ant Design based). Each maps to a Figma component:
- * PageHeader, KpiCard, StatusTag family, FootNote, BarList, StackedBar.
+ * PageHeader, KpiCard, CountUp, StatusTag family, FootNote, BarList, StackedBar, PageSkeleton.
+ * Density / motion / loading rules: DESIGN_SYSTEM.md → "Density", "Motion", "Loading".
  */
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { Breadcrumb, Card, Flex, Statistic, Tag, Tooltip, Typography, theme } from "antd";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Breadcrumb, Card, Col, Flex, Progress, Row, Skeleton, Statistic, Tag, Tooltip, Typography, theme, type StatisticProps } from "antd";
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -23,6 +24,28 @@ import dayjs from "dayjs";
 export const Title = Typography.Title;
 export const Text = Typography.Text;
 
+export type Crumb = { title: string; href?: string };
+
+/**
+ * Admin shell shows the Breadcrumb in the header (Figma "Top bar"), so PageHeader hands its crumbs
+ * to the shell instead of rendering them inline. Member pages have no such slot → crumbs stay inline.
+ */
+const HeaderCrumbsContext = createContext<((c: Crumb[] | null) => void) | null>(null);
+
+export function HeaderCrumbsProvider({ fallback, children }: { fallback: Crumb[]; children: (crumbs: Crumb[]) => ReactNode }) {
+  const [crumbs, setCrumbs] = useState<Crumb[] | null>(null);
+  return <HeaderCrumbsContext.Provider value={setCrumbs}>{children(crumbs ?? fallback)}</HeaderCrumbsContext.Provider>;
+}
+
+export function CrumbTrail({ crumbs, style }: { crumbs: Crumb[]; style?: React.CSSProperties }) {
+  return (
+    <Breadcrumb
+      style={style}
+      items={crumbs.map((c) => ({ title: c.href ? <Link href={c.href}>{c.title}</Link> : c.title }))}
+    />
+  );
+}
+
 export function PageHeader({
   crumbs,
   title,
@@ -30,37 +53,96 @@ export function PageHeader({
   extra,
   meta,
 }: {
-  crumbs?: { title: string; href?: string }[];
+  crumbs?: Crumb[];
   title: ReactNode;
   description?: ReactNode;
   extra?: ReactNode;
   meta?: ReactNode;
 }) {
+  const setHeaderCrumbs = useContext(HeaderCrumbsContext);
+  const crumbKey = JSON.stringify(crumbs ?? null);
+  useEffect(() => {
+    if (!setHeaderCrumbs || !crumbs?.length) return;
+    setHeaderCrumbs(crumbs);
+    return () => setHeaderCrumbs(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setHeaderCrumbs, crumbKey]);
+  const inlineCrumbs = !setHeaderCrumbs && crumbs && crumbs.length > 0;
   return (
-    <div style={{ marginBottom: 24 }}>
-      {crumbs && crumbs.length > 0 && (
-        <Breadcrumb
-          style={{ marginBottom: 8 }}
-          items={crumbs.map((c) => ({ title: c.href ? <Link href={c.href}>{c.title}</Link> : c.title }))}
-        />
-      )}
-      <Flex justify="space-between" align="flex-start" gap={24}>
+    <div style={{ marginBottom: 16 }}>
+      {inlineCrumbs && <CrumbTrail crumbs={crumbs} style={{ marginBottom: 4 }} />}
+      <Flex justify="space-between" align="flex-start" gap={16}>
         <div style={{ minWidth: 0 }}>
-          <Title level={2} style={{ margin: 0, fontWeight: 500 }}>
-            {title}
+          <Title level={2} style={{ margin: 0, fontWeight: 600 }}>
+            <span className="lh-gradient-text">{title}</span>
           </Title>
           {description && (
-            <Text type="secondary" style={{ display: "block", marginTop: 6 }}>
+            <Text type="secondary" style={{ display: "block", marginTop: 4 }}>
               {description}
             </Text>
           )}
-          {meta && <div style={{ marginTop: 10 }}>{meta}</div>}
+          {meta && <div style={{ marginTop: 8 }}>{meta}</div>}
         </div>
         {extra && <Flex gap={8} style={{ flexShrink: 0 }}>{extra}</Flex>}
       </Flex>
     </div>
   );
 }
+
+/**
+ * Count-up number for every stat figure (DESIGN_SYSTEM.md → Motion). Counts 0 → value when it first
+ * scrolls into view and old → new when the value changes; static under prefers-reduced-motion.
+ * Width is reserved for the final value and digits are tabular, so nothing around it shifts.
+ */
+export function CountUp({ value, duration = 800 }: { value: number; duration?: number }) {
+  const decimals = Number.isInteger(value) ? 0 : Math.min(2, (String(value).split(".")[1] ?? "").length);
+  const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const ref = useRef<HTMLSpanElement>(null);
+  const from = useRef(0);
+  const [shown, setShown] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    const start = from.current;
+    if (!el || start === value || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      from.current = value;
+      setShown(value);
+      return;
+    }
+    let raf = 0;
+    let t0 = 0;
+    const tick = (t: number) => {
+      t0 ||= t;
+      const p = Math.min(1, (t - t0) / duration);
+      const v = start + (value - start) * (1 - Math.pow(1 - p, 3)); // ease-out cubic
+      from.current = v;
+      setShown(v);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      io.disconnect();
+      raf = requestAnimationFrame(tick);
+    });
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      cancelAnimationFrame(raf);
+    };
+  }, [value, duration]);
+
+  const final = fmt(value);
+  const digits = final.replace(/[^0-9]/g, "").length;
+  return (
+    <span ref={ref} className="lh-countup" style={{ minWidth: `calc(${digits}ch + ${(final.length - digits) * 0.35}ch)` }}>
+      <span aria-hidden="true">{fmt(shown)}</span>
+      <span className="lh-sr-only">{final}</span>
+    </span>
+  );
+}
+
+/** antd Statistic formatter: numbers count up, strings ("—") render as-is. */
+export const countUpFormatter: StatisticProps["formatter"] = (v) => (typeof v === "number" ? <CountUp value={v} /> : v);
 
 export function KpiCard({
   label,
@@ -83,7 +165,7 @@ export function KpiCard({
 }) {
   const { token } = theme.useToken();
   const body = (
-    <Card loading={loading} className={href ? "lh-clickable" : undefined} style={{ height: "100%" }}>
+    <Card loading={loading} className={href ? "lh-kpi lh-clickable" : "lh-kpi"} style={{ height: "100%" }}>
       <Flex align="center" gap={6} style={{ marginBottom: 4 }}>
         <Text type="secondary">{label}</Text>
         {definition && (
@@ -92,7 +174,7 @@ export function KpiCard({
           </Tooltip>
         )}
       </Flex>
-      <Statistic value={value} suffix={suffix} styles={{ content: { color: danger ? token.colorError : token.colorText, fontWeight: 600 } }} />
+      <Statistic value={value} suffix={suffix} formatter={countUpFormatter} styles={{ content: { color: danger ? token.colorError : token.colorText, fontWeight: 600 } }} />
       {hint && <Text type="secondary" style={{ fontSize: 12 }}>{hint}</Text>}
     </Card>
   );
@@ -146,31 +228,28 @@ export function DeadlineTag({ deadline, done }: { deadline: Date | string; done?
 
 export function FootNote({ children }: { children: ReactNode }) {
   return (
-    <Flex gap={8} align="center" style={{ marginTop: 24 }}>
+    <Flex gap={8} align="center" style={{ marginTop: 16 }}>
       <SafetyOutlined style={{ opacity: 0.6 }} />
       <Text type="secondary" style={{ fontSize: 12 }}>{children}</Text>
     </Flex>
   );
 }
 
-/** Horizontal bar chart (maps to @ant-design/charts Bar if richer charts are needed later). */
+/** Horizontal bar list built from antd Progress (Figma Chart/Bar). Animates on mount via Progress. */
 export function BarList({ rows, suffix = "%" }: { rows: { label: string; value: number; hint?: string }[]; suffix?: string }) {
-  const { token } = theme.useToken();
   if (rows.length === 0) return <Text type="secondary">Chưa có dữ liệu.</Text>;
   return (
-    <Flex vertical gap={14}>
+    <Flex vertical gap={10}>
       {rows.map((r) => (
         <div key={r.label}>
-          <Flex justify="space-between" style={{ marginBottom: 6 }}>
+          <Flex justify="space-between">
             <Text>{r.label}</Text>
             <Text strong>
-              {r.value}
+              <CountUp value={r.value} />
               {suffix} {r.hint && <Text type="secondary" style={{ fontWeight: 400 }}>· {r.hint}</Text>}
             </Text>
           </Flex>
-          <div style={{ height: 10, borderRadius: 6, background: token.colorFillSecondary }}>
-            <div style={{ width: `${Math.min(100, r.value)}%`, height: "100%", borderRadius: 6, background: token.colorPrimary }} />
-          </div>
+          <Progress percent={Math.min(100, r.value)} showInfo={false} size={["100%", 8]} style={{ margin: 0 }} />
         </div>
       ))}
     </Flex>
@@ -182,19 +261,19 @@ export function StackedBar({ parts }: { parts: { label: string; value: number; c
   if (total === 0) return <Text type="secondary">Chưa có câu hỏi nào được duyệt.</Text>;
   return (
     <div>
-      <div style={{ display: "flex", height: 16, borderRadius: 8, overflow: "hidden" }}>
+      <div className="lh-stacked" style={{ display: "flex", height: 12, borderRadius: 6, overflow: "hidden" }}>
         {parts.map((p) => (
           <Tooltip key={p.label} title={`${p.label}: ${p.value}`}>
             <div style={{ width: `${(p.value / total) * 100}%`, background: p.color }} />
           </Tooltip>
         ))}
       </div>
-      <Flex gap={20} wrap style={{ marginTop: 12 }}>
+      <Flex gap={16} wrap style={{ marginTop: 10 }}>
         {parts.map((p) => (
           <Flex key={p.label} gap={8} align="center">
             <span style={{ width: 10, height: 10, borderRadius: 3, background: p.color, display: "inline-block" }} />
             <Text>
-              {p.label} <Text strong>{Math.round((p.value / total) * 100)}%</Text> <Text type="secondary">({p.value})</Text>
+              {p.label} <Text strong><CountUp value={Math.round((p.value / total) * 100)} />%</Text> <Text type="secondary">(<CountUp value={p.value} />)</Text>
             </Text>
           </Flex>
         ))}
@@ -212,4 +291,75 @@ export function report(message: MessageApi, r: { ok: boolean; error?: string; me
   }
   message.error(r.error ?? "Có lỗi xảy ra.");
   return false;
+}
+
+/**
+ * Route-level loading placeholder (Figma: 08 · Density · Motion · Loading → Skeleton patterns).
+ * Used by every loading.tsx so navigation shows the shape of the target page (heuristic #1).
+ */
+export function PageSkeleton({ variant = "list" }: { variant?: "list" | "detail" | "cards" | "dashboard" }) {
+  const header = (
+    <div style={{ marginBottom: 16 }}>
+      <Skeleton active title={{ width: 240 }} paragraph={{ rows: 1, width: 360 }} />
+    </div>
+  );
+  const kpis = (n: number) => (
+    <Row gutter={16} style={{ marginBottom: 16 }}>
+      {Array.from({ length: n }, (_, i) => (
+        <Col span={24 / n} key={i}>
+          <Card><Skeleton active title={false} paragraph={{ rows: 2, width: ["50%", "30%"] }} /></Card>
+        </Col>
+      ))}
+    </Row>
+  );
+  const table = (
+    <Card styles={{ body: { padding: 16 } }}>
+      <Skeleton.Input active block style={{ height: 28, marginBottom: 12 }} />
+      <Skeleton active title={false} paragraph={{ rows: 6, width: "100%" }} />
+    </Card>
+  );
+  return (
+    <div className="lh-skeleton" aria-busy="true" aria-label="Đang tải">
+      {header}
+      {variant === "list" && (<>{kpis(3)}{table}</>)}
+      {variant === "dashboard" && (
+        <>
+          <Flex gap={12} style={{ marginBottom: 16 }}>
+            {[200, 160, 240].map((w) => <Skeleton.Input key={w} active style={{ width: w }} />)}
+          </Flex>
+          {kpis(4)}
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            {[0, 1].map((i) => (
+              <Col span={12} key={i}><Card><Skeleton active paragraph={{ rows: 4 }} /></Card></Col>
+            ))}
+          </Row>
+          {table}
+        </>
+      )}
+      {variant === "detail" && (
+        <>
+          <Flex gap={24} style={{ marginBottom: 16 }}>
+            {[80, 96, 72].map((w) => <Skeleton.Button key={w} active size="small" style={{ width: w }} />)}
+          </Flex>
+          <Row gutter={16}>
+            <Col span={16}><Card><Skeleton active paragraph={{ rows: 8 }} /></Card></Col>
+            <Col span={8}><Card><Skeleton active paragraph={{ rows: 4 }} /></Card></Col>
+          </Row>
+        </>
+      )}
+      {variant === "cards" && (
+        <Flex vertical gap={12}>
+          {[0, 1, 2, 3].map((i) => (
+            <Card key={i} styles={{ body: { padding: 16 } }}>
+              <Flex gap={16} align="center">
+                <Skeleton.Image active style={{ width: 96, height: 64 }} />
+                <Skeleton active title={{ width: "40%" }} paragraph={{ rows: 1, width: "70%" }} style={{ flex: 1 }} />
+                <Skeleton.Button active />
+              </Flex>
+            </Card>
+          ))}
+        </Flex>
+      )}
+    </div>
+  );
 }

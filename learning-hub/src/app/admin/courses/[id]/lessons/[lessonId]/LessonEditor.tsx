@@ -74,7 +74,7 @@ export default function LessonEditor({ course, lesson, type }: { course: { id: s
                     <Input placeholder="https://www.youtube.com/watch?v=... hoặc https://drive.google.com/file/d/..." />
                   </Form.Item>
                   {embed && (
-                    <div className="lh-video" style={{ marginBottom: 24 }}>
+                    <div className="lh-video" style={{ marginBottom: 16 }}>
                       <iframe src={embed} title="Xem trước video" allow="encrypted-media; fullscreen" />
                     </div>
                   )}

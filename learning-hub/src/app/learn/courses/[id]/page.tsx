@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Alert, Button, Card, Col, Flex, Progress, Row, Tag } from "antd";
-import { CheckCircleFilled, FileTextOutlined, LockOutlined, PlayCircleOutlined } from "@/components/icons";
+import { CheckCircleFilled, FileTextOutlined, LockOutlined, PlayCircleOutlined, TrophyOutlined } from "@/components/icons";
 import { prisma } from "@/lib/db";
 import { requireMember } from "@/lib/auth";
 import { courseProgress } from "@/lib/access";
@@ -9,6 +9,7 @@ import { fmtDateTime } from "@/lib/format";
 import NoAccess from "@/components/NoAccess";
 import { FootNote, PageHeader, PassTag, Text } from "@/components/ui";
 import { courseGuard } from "./guard";
+import { issueCertificates } from "@/lib/certificates";
 
 export default async function CourseOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,6 +26,8 @@ export default async function CourseOverviewPage({ params }: { params: Promise<{
   const next = lessons.find((l) => !doneIds.has(l.id)) ?? lessons[0];
   const locked = g.lock.locked;
   const pct = lessons.length ? Math.round((doneIds.size / lessons.length) * 100) : 0;
+  if (p.complete) await issueCertificates(user.id, [id]);
+  const cert = p.complete ? await prisma.certificate.findUnique({ where: { userId_courseId: { userId: user.id, courseId: id } }, select: { id: true, number: true } }) : null;
 
   return (
     <>
@@ -39,14 +42,25 @@ export default async function CourseOverviewPage({ params }: { params: Promise<{
             {g.lock.activeDeadline && <Tag color="warning">Hạn chót {fmtDateTime(g.lock.activeDeadline)}</Tag>}
           </Flex>
         }
-        extra={!locked && next ? <Button type="primary" size="large" href={`/learn/courses/${id}/lessons/${next.id}`}>{doneIds.size > 0 ? "Tiếp tục học" : "Bắt đầu học"}</Button> : undefined}
+        extra={!locked && next ? <Button type="primary" className="lh-btn-shift" href={`/learn/courses/${id}/lessons/${next.id}`}>{doneIds.size > 0 ? "Tiếp tục học" : "Bắt đầu học"}</Button> : undefined}
       />
+      {cert && (
+        <Alert
+          type="success"
+          showIcon
+          icon={<TrophyOutlined />}
+          style={{ marginBottom: 16 }}
+          title="Bạn đã hoàn thành khóa học và nhận chứng chỉ."
+          description={`Số chứng chỉ ${cert.number}.`}
+          action={<Link href={`/certificates/${cert.id}`}><Button type="primary">Xem chứng chỉ</Button></Link>}
+        />
+      )}
       {locked && (
         <Alert
           type="error"
           showIcon
           icon={<LockOutlined />}
-          style={{ marginBottom: 20 }}
+          style={{ marginBottom: 16 }}
           title="Khóa học đã quá hạn, bạn không thể học tiếp."
           description={`Hạn chót là ${fmtDateTime(g.lock.deadline)}. Bạn vẫn xem được kết quả quiz đã làm. Liên hệ quản trị viên nếu cần gia hạn.`}
         />
@@ -59,7 +73,7 @@ export default async function CourseOverviewPage({ params }: { params: Promise<{
               {lessons.map((l, i) => {
                 const row = (
                   <Flex align="center" gap={12} style={{ padding: "10px 12px", borderRadius: 8 }} className={locked ? undefined : "lh-clickable"}>
-                    {doneIds.has(l.id) ? <CheckCircleFilled style={{ color: "#206347", fontSize: 18 }} /> : l.type === "ARTICLE" ? <FileTextOutlined style={{ fontSize: 18 }} /> : <PlayCircleOutlined style={{ fontSize: 18 }} />}
+                    {doneIds.has(l.id) ? <CheckCircleFilled style={{ color: "var(--ant-color-success)", fontSize: 18 }} /> : l.type === "ARTICLE" ? <FileTextOutlined style={{ fontSize: 18 }} /> : <PlayCircleOutlined style={{ fontSize: 18 }} />}
                     <div style={{ flex: 1 }}>
                       <Text strong>{i + 1}. {l.title}</Text>
                       <br />

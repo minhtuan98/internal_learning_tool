@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { signInWithEmail } from "@/lib/auth";
+import { afterSignInPath } from "@/lib/welcome";
 
 export async function GET(req: Request) {
   const base = process.env.APP_URL ?? new URL(req.url).origin;
@@ -32,5 +33,5 @@ export async function GET(req: Request) {
 
   const r = await signInWithEmail(info.email, { name: info.name, picture: info.picture });
   if (!r.ok) return NextResponse.redirect(new URL(`/denied?reason=${r.reason}&email=${encodeURIComponent(info.email)}`, base));
-  return NextResponse.redirect(new URL(r.role === "ADMIN" ? "/admin/dashboard" : "/learn", base));
+  return NextResponse.redirect(new URL(await afterSignInPath(r.role), base));
 }

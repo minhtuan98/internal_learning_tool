@@ -80,7 +80,7 @@ export default function TakeQuizClient({
 
   return (
     <>
-      <Flex justify="space-between" align="center" style={{ marginBottom: 20 }}>
+      <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
         <div>
           <Typography.Text type="secondary">{quiz.course} · Lượt {attempt.number} / {quiz.maxAttempts}</Typography.Text>
           <Typography.Title level={3} style={{ margin: 0 }}>{quiz.title}</Typography.Title>
@@ -135,7 +135,7 @@ export default function TakeQuizClient({
                 </Button>
               ))}
             </Flex>
-            <Button type="primary" block size="large" icon={<SendOutlined />} loading={submitting} disabled={timeUp} onClick={() => setConfirm(true)}>Nộp bài</Button>
+            <Button type="primary" block icon={<SendOutlined />} loading={submitting} disabled={timeUp} onClick={() => setConfirm(true)}>Nộp bài</Button>
           </Card>
         </Col>
       </Row>

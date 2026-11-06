@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Drawer, Flex, Progress, Select, Table, Tabs, Tag, Typography, theme } from "antd";
 import { ClearOutlined } from "@ant-design/icons";
@@ -31,6 +31,7 @@ export default function ResultsClient({
   const router = useRouter();
   const { token } = theme.useToken();
   const [detail, setDetail] = useState<QuizRow | null>(null);
+  const [pending, startTransition] = useTransition(); // filter/tab change re-renders on the server → Table loading
   const go = (next: Partial<typeof filter> & { tab?: string }) => {
     const v = { ...filter, tab, ...next };
     const sp = new URLSearchParams();
@@ -38,7 +39,7 @@ export default function ResultsClient({
     if (v.course) sp.set("course", v.course);
     if (v.quiz && v.tab !== "progress") sp.set("quiz", v.quiz);
     if (v.group) sp.set("group", v.group);
-    router.push(`/admin/results${sp.size ? `?${sp}` : ""}`);
+    startTransition(() => router.push(`/admin/results${sp.size ? `?${sp}` : ""}`));
   };
   const filtered = filter.course || filter.quiz || filter.group;
 
@@ -65,6 +66,7 @@ export default function ResultsClient({
               <>
                 {filters}
                 <Table
+                  loading={pending}
                   rowKey="key"
                   dataSource={quizRows}
                   pagination={{ pageSize: 15, hideOnSinglePage: true }}
@@ -90,6 +92,7 @@ export default function ResultsClient({
               <>
                 {filters}
                 <Table
+                  loading={pending}
                   rowKey="key"
                   dataSource={progressRows}
                   pagination={{ pageSize: 15, hideOnSinglePage: true }}

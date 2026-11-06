@@ -49,7 +49,7 @@ export default function QuizIntroClient({ course, quiz, check, deadline, locked,
               column={2}
               items={[
                 { key: "q", label: "Số câu hỏi", children: `${quiz.questions} câu` },
-                { key: "p", label: "Điểm đạt", children: `${quiz.passScore}%` },
+                { key: "p", label: "Điểm đạt", children: `≥ ${quiz.passScore}% (cần đạt để hoàn thành khóa và nhận chứng chỉ)` },
                 { key: "t", label: "Thời gian", children: `${quiz.timeLimitMinutes} phút` },
                 { key: "a", label: "Số lượt", children: `Đã dùng ${used} / ${quiz.maxAttempts}` },
                 { key: "w", label: "Thời gian mở", children: quiz.opensAt || quiz.closesAt ? `${fmtDateTime(quiz.opensAt)} – ${fmtDateTime(quiz.closesAt)}` : "Không giới hạn" },
@@ -58,7 +58,7 @@ export default function QuizIntroClient({ course, quiz, check, deadline, locked,
             />
             {check.ok ? (
               <Flex justify="flex-end" style={{ marginTop: 12 }}>
-                <Button type="primary" size="large" icon={<PlayCircleOutlined />} loading={busy} onClick={start}>{check.resume ? "Tiếp tục lượt đang làm" : used > 0 ? "Làm lại" : "Bắt đầu làm bài"}</Button>
+                <Button type="primary" icon={<PlayCircleOutlined />} loading={busy} onClick={start}>{check.resume ? "Tiếp tục lượt đang làm" : used > 0 ? "Làm lại" : "Bắt đầu làm bài"}</Button>
               </Flex>
             ) : (
               <Alert style={{ marginTop: 12 }} type={locked ? "error" : "warning"} showIcon title={check.reason} description={locked ? `Đã quá hạn ${fmtDateTime(deadline)}. Bạn vẫn xem được kết quả các lượt đã làm.` : undefined} />

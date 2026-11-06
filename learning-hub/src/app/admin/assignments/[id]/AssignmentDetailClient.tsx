@@ -53,7 +53,7 @@ export default function AssignmentDetailClient({ assignment, people, options }: 
           </>
         }
       />
-      <Row gutter={16} style={{ marginBottom: 20 }}>
+      <Row gutter={16} className="lh-stagger" style={{ marginBottom: 16 }}>
         <Col span={6}><KpiCard label="Được giao" value={people.length} /></Col>
         <Col span={6}><KpiCard label="Hoàn thành" value={n("COMPLETED")} /></Col>
         <Col span={6}><KpiCard label="Đang học" value={n("IN_PROGRESS")} hint={`${n("NOT_STARTED")} chưa bắt đầu`} /></Col>

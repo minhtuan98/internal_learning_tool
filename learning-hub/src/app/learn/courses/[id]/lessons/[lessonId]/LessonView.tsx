@@ -75,8 +75,8 @@ export default function LessonView({ course, lesson, outline, prevId, nextId }: 
             <Flex vertical gap={2}>
               {outline.map((o, i) => (
                 <Link key={o.id} href={`/learn/courses/${course.id}/lessons/${o.id}`}>
-                  <Flex gap={10} align="center" style={{ padding: "8px 10px", borderRadius: 6, background: o.id === lesson.id ? "var(--lh-bg)" : undefined }}>
-                    {o.done ? <CheckCircleFilled style={{ color: "#206347" }} /> : o.type === "ARTICLE" ? <FileTextOutlined /> : <PlayCircleOutlined />}
+                  <Flex gap={10} align="center" style={{ padding: "8px 10px", borderRadius: 6, background: o.id === lesson.id ? "var(--ant-color-fill-tertiary)" : undefined }}>
+                    {o.done ? <CheckCircleFilled style={{ color: "var(--ant-color-success)" }} /> : o.type === "ARTICLE" ? <FileTextOutlined /> : <PlayCircleOutlined />}
                     <Typography.Text strong={o.id === lesson.id} style={{ fontSize: 13 }}>{i + 1}. {o.title}</Typography.Text>
                   </Flex>
                 </Link>
