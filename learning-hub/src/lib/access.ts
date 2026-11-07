@@ -80,7 +80,12 @@ export async function progressForCourses(userId: string, courseIds: string[]): P
       ...ds.map((d) => d.completedAt),
       ...myAttempts.map((a) => a.submittedAt ?? a.startedAt),
     ].sort((a, b) => b.getTime() - a.getTime());
-    const passTimes = myAttempts.filter((a) => a.passed && a.submittedAt).map((a) => a.submittedAt as Date);
+    // Completion is when every requirement was first met. Later retakes are activity,
+    // not a new completion date (which would change assignment/certificate history).
+    const passTimes = qs.flatMap((q) => {
+      const passes = myAttempts.filter((a) => a.quizId === q.id && a.status === "SUBMITTED" && a.passed && a.submittedAt);
+      return passes.length ? [new Date(Math.min(...passes.map((a) => a.submittedAt!.getTime())))] : [];
+    });
     const completionTimes = [...ds.map((d) => d.completedAt), ...passTimes].sort((a, b) => b.getTime() - a.getTime());
     map.set(cid, {
       lessonsTotal: ls.length,

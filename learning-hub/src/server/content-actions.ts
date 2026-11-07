@@ -33,6 +33,7 @@ export async function saveCourse(id: string | null, input: unknown): Promise<Act
 export async function setCourseStatus(id: string, status: "DRAFT" | "PUBLISHED"): Promise<ActionResult> {
   const admin = await actionAdmin();
   if (!admin) return fail("Bạn không có quyền thực hiện thao tác này.");
+  if (status !== "DRAFT" && status !== "PUBLISHED") return fail("Trạng thái khóa học không hợp lệ.");
   if (status === "DRAFT") {
     const inProgress = await prisma.attempt.count({ where: { status: "IN_PROGRESS", quiz: { courseId: id }, deadlineAt: { gt: new Date() } } });
     if (inProgress > 0) return fail(`Có ${inProgress} thành viên đang làm quiz trong khóa này. Hãy chờ họ nộp bài rồi chuyển về nháp.`);
@@ -75,6 +76,10 @@ export async function saveLesson(courseId: string, id: string | null, input: unk
   const p = LessonSchema.safeParse(input);
   if (!p.success) return fail(p.error.issues[0].message);
   const d = p.data;
+  if (id) {
+    const existing = await prisma.lesson.findUnique({ where: { id } });
+    if (!existing || existing.courseId !== courseId) return fail("Bài học không thuộc khóa học này.");
+  }
   const dup = await prisma.lesson.findFirst({ where: { courseId, title: d.title, NOT: id ? { id } : undefined } });
   if (dup) return fail("Trong khóa đã có bài học cùng tên."); // DEC-052
   let data;
@@ -87,7 +92,7 @@ export async function saveLesson(courseId: string, id: string | null, input: unk
     data = { type: d.type, title: d.title, articleBody: null, videoUrl: d.videoUrl, transcript: d.transcript?.trim() || null, durationMinutes: d.durationMinutes ?? null };
   }
   let lessonId = id;
-  if (id) await prisma.lesson.update({ where: { id }, data });
+  if (id) await prisma.lesson.update({ where: { id, courseId }, data });
   else {
     const last = await prisma.lesson.aggregate({ where: { courseId }, _max: { position: true } });
     lessonId = (await prisma.lesson.create({ data: { ...data, courseId, position: (last._max.position ?? 0) + 1 } })).id;

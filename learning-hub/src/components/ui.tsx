@@ -69,7 +69,7 @@ export function PageHeader({
   }, [setHeaderCrumbs, crumbKey]);
   const inlineCrumbs = !setHeaderCrumbs && crumbs && crumbs.length > 0;
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div className="lh-page-header" style={{ marginBottom: 24 }}>
       {inlineCrumbs && <CrumbTrail crumbs={crumbs} style={{ marginBottom: 4 }} />}
       <Flex justify="space-between" align="flex-start" gap={16}>
         <div style={{ minWidth: 0 }}>

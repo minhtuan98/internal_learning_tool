@@ -7,8 +7,17 @@ import { actionAdmin } from "@/lib/auth";
 import { fail, type ActionResult } from "@/lib/types";
 import { generateQuestions } from "@/lib/ai";
 import { htmlToText } from "@/lib/sanitize";
+import { finalizeExpiredAttempts } from "@/lib/quiz";
 
 const quizPath = (q: { id: string; courseId: string }) => `/admin/courses/${q.courseId}/quizzes/${q.id}`;
+
+// Grade expired attempts against their original questions before allowing edits.
+// Live attempts must keep the question/answer set they started with.
+async function questionsInUse(quizId: string) {
+  await finalizeExpiredAttempts({ quizId });
+  return (await prisma.attempt.count({ where: { quizId, status: "IN_PROGRESS", deadlineAt: { gt: new Date(Date.now() - 5_000) } } })) > 0;
+}
+const QUESTIONS_IN_USE = "Có thành viên đang làm quiz. Hãy chờ họ nộp bài trước khi sửa hoặc duyệt câu hỏi.";
 
 async function checkSources(courseId: string, lessonIds: string[]) {
   if (lessonIds.length === 0) return "Chọn ít nhất 1 bài học làm nguồn câu hỏi.";
@@ -54,8 +63,8 @@ const SettingsSchema = z
     passScore: z.number().int().min(1, "Điểm đạt từ 1 đến 100%.").max(100, "Điểm đạt từ 1 đến 100%."),
     timeLimitMinutes: z.number().int().min(1, "Thời gian làm bài tối thiểu 1 phút.").max(600),
     maxAttempts: z.number().int().min(1, "Số lượt tối thiểu là 1.").max(20),
-    opensAt: z.string().nullable().optional(),
-    closesAt: z.string().nullable().optional(),
+    opensAt: z.string().refine((v) => !v || Number.isFinite(Date.parse(v)), "Thời điểm mở không hợp lệ.").nullable().optional(),
+    closesAt: z.string().refine((v) => !v || Number.isFinite(Date.parse(v)), "Thời điểm đóng không hợp lệ.").nullable().optional(),
   })
   .refine((s) => !s.opensAt || !s.closesAt || new Date(s.closesAt) > new Date(s.opensAt), { message: "Thời điểm đóng phải sau thời điểm mở." });
 
@@ -81,6 +90,7 @@ export async function saveQuizSettings(quizId: string, input: unknown): Promise<
 /** AI drafts questions from the selected lessons; they start as PENDING review (PRD scope 3-4). */
 export async function generateQuizQuestions(quizId: string, count: number): Promise<ActionResult<{ created: number; mode: string }>> {
   if (!(await actionAdmin())) return fail("Bạn không có quyền thực hiện thao tác này.");
+  if (!Number.isFinite(count)) return fail("Số câu hỏi không hợp lệ.");
   const quiz = await prisma.quiz.findUnique({ where: { id: quizId }, include: { sources: { include: { lesson: true } } } });
   if (!quiz) return fail("Không tìm thấy quiz.");
   const n = Math.max(1, Math.min(20, Math.round(count)));
@@ -127,6 +137,7 @@ export async function updateQuestion(id: string, input: unknown, approve: boolea
   const q = await prisma.question.findUnique({ where: { id }, include: { quiz: true } });
   if (!q) return fail("Không tìm thấy câu hỏi.");
   const changed = q.text !== p.data.text || q.options !== JSON.stringify(p.data.options) || q.correctIndex !== p.data.correctIndex || (q.explanation ?? "") !== (p.data.explanation ?? "");
+  if ((changed || (approve && q.reviewStatus !== "APPROVED")) && await questionsInUse(q.quiz.id)) return fail(QUESTIONS_IN_USE);
   await prisma.question.update({
     where: { id },
     data: {
@@ -144,6 +155,10 @@ export async function updateQuestion(id: string, input: unknown, approve: boolea
 
 export async function reviewQuestion(id: string, status: "APPROVED" | "REJECTED" | "PENDING"): Promise<ActionResult> {
   if (!(await actionAdmin())) return fail("Bạn không có quyền thực hiện thao tác này.");
+  if (!["APPROVED", "REJECTED", "PENDING"].includes(status)) return fail("Trạng thái câu hỏi không hợp lệ.");
+  const existing = await prisma.question.findUnique({ where: { id } });
+  if (!existing) return fail("Không tìm thấy câu hỏi.");
+  if (existing.reviewStatus !== status && await questionsInUse(existing.quizId)) return fail(QUESTIONS_IN_USE);
   const q = await prisma.question.update({ where: { id }, data: { reviewStatus: status }, include: { quiz: true } });
   if (q.quiz.status === "PUBLISHED" && status !== "APPROVED") {
     const left = await prisma.question.count({ where: { quizId: q.quizId, reviewStatus: "APPROVED" } });
@@ -159,6 +174,7 @@ export async function reviewQuestion(id: string, status: "APPROVED" | "REJECTED"
 
 export async function approveAllPending(quizId: string): Promise<ActionResult> {
   if (!(await actionAdmin())) return fail("Bạn không có quyền thực hiện thao tác này.");
+  if (await questionsInUse(quizId)) return fail(QUESTIONS_IN_USE);
   const r = await prisma.question.updateMany({ where: { quizId, reviewStatus: "PENDING" }, data: { reviewStatus: "APPROVED" } });
   const q = await prisma.quiz.findUnique({ where: { id: quizId } });
   if (q) revalidatePath(quizPath(q));
@@ -167,6 +183,7 @@ export async function approveAllPending(quizId: string): Promise<ActionResult> {
 
 export async function setQuizStatus(quizId: string, status: "DRAFT" | "PUBLISHED"): Promise<ActionResult> {
   if (!(await actionAdmin())) return fail("Bạn không có quyền thực hiện thao tác này.");
+  if (status !== "DRAFT" && status !== "PUBLISHED") return fail("Trạng thái quiz không hợp lệ.");
   const quiz = await prisma.quiz.findUnique({ where: { id: quizId } });
   if (!quiz) return fail("Không tìm thấy quiz.");
   if (status === "PUBLISHED") {

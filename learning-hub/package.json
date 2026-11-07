@@ -13,7 +13,18 @@
     "db:reset": "prisma db push --force-reset --accept-data-loss && tsx prisma/seed.ts",
     "setup": "prisma db push && tsx prisma/seed.ts",
     "postinstall": "prisma generate",
-    "demo:db": "rm -f prisma/demo.db && DATABASE_URL=file:./demo.db prisma db push --skip-generate && DATABASE_URL=file:./demo.db tsx prisma/seed.ts"
+    "demo:db": "rm -f prisma/demo.db && DATABASE_URL=file:./demo.db prisma db push --skip-generate && DATABASE_URL=file:./demo.db tsx prisma/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "qa:run": "node scripts/qa/run.mjs",
+    "qa:update": "node scripts/qa/run.mjs --generate",
+    "qa:serve": "node scripts/qa/serve.mjs",
+    "qa:publish": "node scripts/qa/run.mjs --publish",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "test:browser": "node scripts/qa/browser.mjs",
+    "preview:local": "node scripts/preview-local.mjs",
+    "test:proof": "node scripts/qa/prove-tests.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "6.3.4",
@@ -40,6 +51,7 @@
     "@types/react-dom": "19.1.11",
     "@types/sanitize-html": "2.16.2",
     "@vitest/coverage-v8": "^4.1.12",
+    "playwright-core": "1.47.2",
     "prisma": "6.19.3",
     "tsx": "4.23.15",
     "typescript": "5.9.3",

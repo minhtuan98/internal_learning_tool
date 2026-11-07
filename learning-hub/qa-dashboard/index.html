@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="Kết quả unit test Learning Hub theo tính năng và phiên bản code. Chạy test và gửi lỗi tới Claude Code trong VS Code.">
+  <title>Learning Hub · Quality Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%230a2226'/%3E%3Cpath d='m10 21 6 6 14-15' fill='none' stroke='%236ff3df' stroke-width='4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./style.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a href="./" class="brand"><span class="brand-mark">✓</span><span>Learning<span class="brand-hub">Hub</span><small>QUALITY STUDIO</small></span></a>
+    <p class="nav-label">WORKSPACE</p>
+    <nav aria-label="Điều hướng">
+      <button class="nav active" data-view="overview"><span>◈</span> Tổng quan <span class="nav-dot"></span></button>
+      <button class="nav" data-view="tests"><span>☷</span> Tất cả test <span id="nav-count" class="counter">—</span></button>
+      <button class="nav" data-view="history"><span>◷</span> Lịch sử chạy</button>
+      <button class="nav" data-view="connections"><span>⌘</span> Kết nối & tự động hóa</button>
+    </nav>
+    <p class="nav-label">TÍNH NĂNG</p>
+    <div id="feature-nav"></div>
+    <div class="sidebar-foot"><span class="pulse-dot"></span><span>Vitest · V8 coverage<small>Đọc trực tiếp kết quả test</small></span></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><div><span class="muted">Learning Hub</span><span class="crumb">/</span><strong>Quality Studio</strong></div><div class="top-actions"><span class="unit-badge">UNIT TESTS</span><button id="connect-top" class="connection-chip"><span class="dot"></span><span id="connection-label">Chưa kết nối máy</span></button></div></header>
+    <nav class="mobile-nav" aria-label="Điều hướng trên điện thoại"><button class="mobile-tab active" data-view="overview">Tổng quan</button><button class="mobile-tab" data-view="tests">Tất cả test</button><button class="mobile-tab" data-view="history">Lịch sử</button><button class="mobile-tab" data-view="connections">Kết nối</button></nav>
+    <main>
+      <section class="page-heading"><div><p class="eyebrow"><span class="pulse-dot"></span> ENGINEERING / QUALITY ASSURANCE</p><h1>Chất lượng, nhìn thấy được.</h1><p class="subtitle">Từ từng tính năng đến từng dòng lỗi. Một nơi để kiểm tra và sửa.</p></div><div class="actions"><button id="fix-all" class="button secondary">⌘ &nbsp; Sửa bằng Claude Code</button><button id="run" class="button primary">▶ &nbsp; Chạy unit test</button></div></section>
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+      <div id="loading" class="loading">Đang đọc kết quả kiểm thử…</div>
+      <div id="content" hidden>
+        <section class="version-strip"><span><span class="dot teal"></span> <strong id="report-mode">Báo cáo đã xuất bản</strong></span><span id="tested-at">—</span><code id="version">—</code><span id="dirty" class="muted"></span><button id="refresh" class="text-button">↻ Làm mới</button></section>
+        <section id="overview-view" class="view">
+          <div id="health" class="health"><div class="health-symbol" id="health-symbol">!</div><div><p class="eyebrow" id="health-label">KẾT QUẢ KIỂM THỬ</p><h2 id="health-title">—</h2><p id="health-description"></p></div><div class="health-count"><strong id="pass-rate">—</strong><span>test đạt</span></div></div>
+          <div class="metrics"><article class="metric"><span>Tổng số test</span><strong id="total">—</strong><small id="file-count">—</small></article><article class="metric"><span><span class="dot green"></span> Thành công</span><strong id="passed" class="green-text">—</strong><small>Các điều kiện đã được xác nhận</small></article><article class="metric"><span><span class="dot red"></span> Thất bại</span><strong id="failed" class="red-text">—</strong><small id="skip-count">—</small></article><article class="metric"><span>Line coverage</span><strong id="coverage">—</strong><small id="coverage-note">Phạm vi logic nghiệp vụ</small></article></div>
+          <div class="section-heading"><div><p class="eyebrow">FEATURE COVERAGE</p><h2>Kiểm thử theo tính năng</h2></div><span class="muted">10 nhóm nghiệp vụ</span></div>
+          <div id="feature-grid" class="feature-grid"></div>
+          <div class="scope-note"><span>ⓘ</span><p>Unit test kiểm tra logic và server actions bằng dữ liệu giả lập. Coverage tính trên các module nghiệp vụ; chưa bao gồm giao diện, so sánh hình ảnh Figma, OAuth thật hoặc tích hợp database/API thật.</p></div>
+          <div class="section-heading"><div><p class="eyebrow">NEEDS ATTENTION</p><h2>Các test cần xử lý</h2></div><button id="show-all" class="text-button">Xem tất cả test ↗</button></div>
+          <div id="failure-list" class="test-list"></div>
+        </section>
+        <section id="tests-view" class="view" hidden><div class="section-heading"><div><p class="eyebrow">TEST EXPLORER</p><h2 id="test-heading">Tất cả unit test</h2></div><span id="result-count" class="muted"></span></div><div class="filters"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Tìm tên test, tính năng hoặc file…" aria-label="Tìm test"></label><select id="status-filter" aria-label="Lọc kết quả"><option value="all">Mọi trạng thái</option><option value="failed">Thất bại</option><option value="passed">Thành công</option><option value="pending">Bỏ qua / chưa chạy</option></select><select id="feature-filter" aria-label="Lọc tính năng"><option value="all">Mọi tính năng</option></select></div><div id="all-tests" class="test-list"></div></section>
+        <section id="history-view" class="view" hidden><div class="section-heading"><div><p class="eyebrow">RUN HISTORY</p><h2>Lịch sử kiểm thử</h2></div></div><div id="history-list"></div></section>
+        <section id="connections-view" class="view" hidden>
+          <div class="section-heading"><div><p class="eyebrow">LOCAL WORKSPACE</p><h2>Kết nối máy chạy code</h2></div></div>
+          <div class="connection-layout"><article class="panel"><h3>Chạy test thật trên code của bạn</h3><p>Trong terminal của thư mục <code>learning-hub</code>, chạy:</p><pre>npm run qa:serve -- --open</pre><p>Link riêng xuất hiện trong terminal sẽ kết nối trang này với máy. Giữ terminal mở; cho phép truy cập mạng cục bộ nếu trình duyệt hỏi. Chrome mới có thể gọi quyền này là <strong>Loopback network</strong>.</p><label for="pair-token">Mã kết nối riêng (nếu cần nhập thủ công)</label><div class="pair-row"><input id="pair-token" type="password" autocomplete="off" placeholder="Dán mã từ link trong terminal"><button id="pair" class="button primary">Kết nối</button></div><p><a id="local-dashboard" class="text-button" href="http://127.0.0.1:4318/">Mở dashboard trên máy này ↗</a></p><button id="disconnect" class="text-button">Ngắt kết nối máy</button><p class="small">Mã chỉ giữ trong phiên tab này. Link báo cáo công khai không chứa mã hoặc khóa API.</p></article>
+          <article class="panel"><h3>Claude Code trong VS Code</h3><p>Nút sửa lỗi mở đúng workspace và gửi các assertion thất bại vào Claude Code. Cần cài extension <strong>Claude Code</strong> và đăng nhập Claude.</p><pre>claude auth login</pre><p>Hook <code>Stop</code> kiểm tra phiên bản code sau mỗi lượt Claude hoàn tất: sinh thêm test khi có thay đổi logic, chạy suite và cập nhật báo cáo Vercel.</p><button id="generate" class="button secondary">✦ &nbsp; Sinh test mới & chạy lại</button><p id="generation-status" class="small">Chưa có trạng thái sinh test.</p><p class="small">Sinh test dùng tài khoản Claude của máy, giới hạn $2/lượt. Không ghi đè bộ test gốc. Thay đổi chỉ ở UI sẽ chạy suite hiện có và được ghi rõ là chưa sinh UI test.</p></article></div>
+          <div class="section-heading"><div><p class="eyebrow">SOURCE OF TRUTH</p><h2>Nguồn đối chiếu</h2></div></div><div id="sources" class="source-grid"></div>
+        </section>
+        <footer><span><span class="brand-hub">Learning Hub</span> · Quality Studio</span><span id="footer-scope">Kết quả thật · Phiên bản rõ ràng · Không bỏ qua test lỗi</span></footer>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button, Card, Col, Empty, Flex, Progress, Row, Tag, Tooltip, Typography } from "antd";
-import { CheckCircleOutlined, LockOutlined } from "@ant-design/icons";
+import { ArrowRightOutlined, CheckCircleOutlined, LockOutlined, ReadOutlined } from "@ant-design/icons";
 import { AssignmentStateTag, DeadlineTag, FootNote, KpiCard, PageHeader } from "@/components/ui";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 
@@ -35,11 +35,24 @@ export default function MyWorkClient({ items }: { items: Item[] }) {
 
   return (
     <>
-      <PageHeader title="Việc của tôi" description="Khóa học bạn được giao, sắp xếp theo hạn chót." />
-      <Row gutter={16} className="lh-stagger" style={{ marginBottom: 16 }}>
-        <Col span={8}><KpiCard label="Cần làm" value={todo} /></Col>
-        <Col span={8}><KpiCard label="Quá hạn" value={sections[0].items.length} danger={sections[0].items.length > 0} /></Col>
-        <Col span={8}><KpiCard label="Đã hoàn thành" value={sections[3].items.length} /></Col>
+      <section className="lh-overview-hero">
+        <div className="lh-overview-hero__copy">
+          <span className="lh-eyebrow"><span className="lh-status-dot" /> HÀNH TRÌNH HỌC TẬP</span>
+          <PageHeader title="Mỗi ngày, một bước tiến." description={todo ? `Bạn có ${todo} khóa học cần hoàn thành. Bắt đầu từ bài học tiếp theo nhé.` : "Theo dõi khóa học được giao và những thành quả bạn đã đạt được."} />
+          <Flex gap={10} wrap>
+            <Button type="primary" href="/learn/courses" icon={<ReadOutlined />}>Khám phá khóa học</Button>
+            <Button type="text" href="/learn/certificates" icon={<ArrowRightOutlined />} iconPlacement="end">Chứng chỉ của tôi</Button>
+          </Flex>
+        </div>
+        <div className="lh-hero-stat">
+          <Progress strokeColor="var(--ws-accent)" type="circle" size={112} strokeWidth={6} percent={items.length ? Math.round(sections[3].items.length / items.length * 100) : 0} format={() => <span>{sections[3].items.length}<small>/{items.length}</small></span>} />
+          <div><Typography.Text strong>Khóa học hoàn thành</Typography.Text><Typography.Text type="secondary">Từng bài học, thêm một kỹ năng</Typography.Text></div>
+        </div>
+      </section>
+      <Row gutter={[16, 16]} className="lh-stagger" style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={8}><KpiCard label="Cần làm" value={todo} /></Col>
+        <Col xs={24} sm={8}><KpiCard label="Quá hạn" value={sections[0].items.length} danger={sections[0].items.length > 0} /></Col>
+        <Col xs={24} sm={8}><KpiCard label="Đã hoàn thành" value={sections[3].items.length} /></Col>
       </Row>
       {items.length === 0 ? (
         <Card>
@@ -79,8 +92,8 @@ function WorkCard({ item: i }: { item: Item }) {
   else action = <Button type="primary" href={href}>{i.lessonsDone > 0 || i.quizzes.some((q) => q.bestScore !== null) ? "Tiếp tục học" : "Bắt đầu"}</Button>;
 
   return (
-    <Card styles={{ body: { padding: 16 } }}>
-      <Flex gap={16} align="center">
+    <Card className="lh-work-card" styles={{ body: { padding: 20 } }}>
+      <Flex className="lh-work-card__body" gap={20} align="center">
         <img src={`/api/files/${i.coverImage}`} alt="" style={{ width: 140, height: 92, objectFit: "cover", borderRadius: 8, flexShrink: 0, filter: i.hasAccess ? undefined : "grayscale(1)" }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <Flex gap={8} align="center" wrap>
@@ -88,7 +101,7 @@ function WorkCard({ item: i }: { item: Item }) {
             {i.hasAccess ? <AssignmentStateTag state={i.state} /> : <AssignmentStateTag state="NO_ACCESS" />}
           </Flex>
           <Typography.Title level={5} style={{ margin: "4px 0 8px" }}>{i.title}</Typography.Title>
-          <Flex gap={16} align="center">
+          <Flex className="lh-work-card__progress" gap={16} align="center" wrap>
             <Progress percent={pctDone} size="small" style={{ width: 220, margin: 0 }} format={() => `${i.lessonsDone}/${i.lessonsTotal} bài`} />
             <Flex gap={6} wrap>
               {i.quizzes.map((q) => (
@@ -101,7 +114,7 @@ function WorkCard({ item: i }: { item: Item }) {
           {i.state === "OVERDUE" && <Typography.Text type="danger" style={{ display: "block", marginTop: 8, fontSize: 13 }}>Đã hết hạn lúc {fmtDateTime(i.deadline)}, không thể học tiếp.</Typography.Text>}
           {i.state === "COMPLETED" && i.completedAt && <Typography.Text type="success" style={{ display: "block", marginTop: 8, fontSize: 13 }}>Hoàn thành ngày {fmtDate(i.completedAt)}</Typography.Text>}
         </div>
-        <Flex vertical align="flex-end" gap={12} style={{ flexShrink: 0 }}>
+        <Flex className="lh-work-card__action" vertical align="flex-end" gap={12} style={{ flexShrink: 0 }}>
           <DeadlineTag deadline={i.deadline} done={i.state === "COMPLETED"} />
           {action}
         </Flex>

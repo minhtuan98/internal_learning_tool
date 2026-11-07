@@ -35,7 +35,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--lh-page-bg); color: var(--lh-page-text); }
-body { font-family: var(--font-sans), Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; min-width: 1280px; position: relative; isolation: isolate; }
+body { font-family: var(--font-sans), Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; min-width: 320px; position: relative; isolation: isolate; }
 a { color: inherit; }
 
 /* ---------- Aurora backdrop: soft colour fields + faint grid, fixed behind everything ---------- */
@@ -167,8 +167,10 @@ html .ant-btn.ant-btn-color-primary.ant-btn-variant-solid:not(:disabled):not(.an
 /* Stacked bar segments grow in */
 .lh-stacked > * { transition: width var(--ant-motion-duration-slow, .25s) ease-out; }
 
+/* Zero transition duration is essential: even 0.01ms animates temporary popup
+   measurement positions and makes rc-trigger calculate offscreen coordinates. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 0s !important; }
   .lh-clickable:hover { transform: none; }
 }
 

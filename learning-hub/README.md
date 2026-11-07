@@ -1,7 +1,18 @@
 # Learning Hub — Internal Learning Platform
 
+Unit tests, the separate Vercel results dashboard, local run/fix buttons and Claude Stop automation: see [QA.md](QA.md).
+
 Next.js 15 (App Router) · Ant Design 6.7 · Prisma 6 + SQLite · Claude API (`claude-opus-5-5`).
 Spec: Notion "Internal Learning Platform — Product Docs" (PRD DEC-001…DEC-059). Design: Figma file `2DXccwpK15yRxR5dBHCajq`.
+
+## Local UI review
+
+```sh
+npm run build
+npm run preview:local   # http://127.0.0.1:3001
+```
+
+This uses a persistent isolated copy under `.qa/review/preview.db`, with local quick sign-in. It does not change `prisma/dev.db`. See [LOCAL_REVIEW.md](LOCAL_REVIEW.md) for the audit, verification evidence and remaining limitations.
 
 ## Run locally
 

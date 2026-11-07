@@ -40,6 +40,7 @@ export async function savePerson(id: string | null, input: unknown): Promise<Act
 export async function setUserStatus(id: string, status: "ACTIVE" | "LOCKED"): Promise<ActionResult> {
   const admin = await actionAdmin();
   if (!admin) return fail("Bạn không có quyền thực hiện thao tác này.");
+  if (status !== "ACTIVE" && status !== "LOCKED") return fail("Trạng thái tài khoản không hợp lệ.");
   if (id === admin.id) return fail("Bạn không thể tự khóa tài khoản của mình.");
   await prisma.user.update({ where: { id }, data: { status } });
   revalidatePath("/admin/users");

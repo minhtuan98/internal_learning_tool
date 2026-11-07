@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/learning-hub/scripts/qa-hook.mjs\"",
+            "async": true,
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}

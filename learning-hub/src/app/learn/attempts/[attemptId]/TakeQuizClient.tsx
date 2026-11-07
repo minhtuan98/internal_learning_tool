@@ -81,20 +81,29 @@ export default function TakeQuizClient({
   const deadline = new Date(attempt.deadlineAt).getTime();
   const [left, setLeft] = useState(() => deadline - (Date.now() + offset.current));
   const submitted = useRef(false);
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+  const failedAnswers = useRef(new Set<string>());
+  const pendingSaves = useRef(0);
 
   const submit = useCallback(
     async (auto: boolean) => {
       if (submitted.current) return;
       submitted.current = true;
       setSubmitting(true);
-      const r = await submitAttempt(attempt.id, auto);
-      if (!r.ok) {
+      try {
+        // Do not score while the last selected answer is still on its way to the server.
+        await saveQueue.current;
+        if (!auto && failedAnswers.current.size) {
+          throw new Error("Có câu trả lời chưa lưu được. Hãy chọn lại đáp án rồi nộp bài.");
+        }
+        const r = await submitAttempt(attempt.id, auto);
+        if (!r.ok) throw new Error(r.error);
+        router.replace(`/learn/attempts/${attempt.id}/result`);
+      } catch (error) {
         submitted.current = false;
         setSubmitting(false);
-        message.error(r.error);
-        return;
+        message.error(error instanceof Error ? error.message : "Chưa nộp được bài. Vui lòng thử lại.");
       }
-      router.replace(`/learn/attempts/${attempt.id}/result`);
     },
     [attempt.id, message, router],
   );
@@ -293,12 +302,25 @@ export default function TakeQuizClient({
     return () => clearInterval(t);
   }, [deadline, submit]);
 
-  const choose = async (qid: string, idx: number) => {
+  const choose = (qid: string, idx: number) => {
+    if (submitted.current || timeUp) return;
     setAnswers((a) => ({ ...a, [qid]: idx }));
+    pendingSaves.current++;
     setSave("saving");
-    const r = await saveAnswer(attempt.id, qid, idx);
-    setSave(r.ok ? "saved" : "error");
-    if (!r.ok) message.error(r.error);
+    // Serial saves preserve the user's final choice, even when requests are delayed.
+    saveQueue.current = saveQueue.current.then(async () => {
+      try {
+        const r = await saveAnswer(attempt.id, qid, idx);
+        if (!r.ok) throw new Error(r.error);
+        failedAnswers.current.delete(qid);
+      } catch (error) {
+        failedAnswers.current.add(qid);
+        message.error(error instanceof Error ? error.message : "Chưa lưu được câu trả lời. Hãy chọn lại đáp án.");
+      } finally {
+        pendingSaves.current--;
+        setSave(pendingSaves.current ? "saving" : failedAnswers.current.size ? "error" : "saved");
+      }
+    });
   };
 
   const answered = questions.filter((q) => answers[q.id] !== undefined).length;
@@ -368,7 +390,7 @@ export default function TakeQuizClient({
                 </Button>
               ))}
             </Flex>
-            <Button type="primary" block icon={<SendOutlined />} loading={submitting} disabled={timeUp} onClick={() => setConfirm(true)}>Nộp bài</Button>
+            <Button type="primary" block icon={<SendOutlined />} loading={submitting} disabled={submitting} onClick={() => timeUp ? submit(true) : setConfirm(true)}>{timeUp ? "Thử nộp lại" : "Nộp bài"}</Button>
             <div style={{ marginTop: 16, paddingTop: 12, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
               <RulesList max={integrity.maxViolations} />
             </div>

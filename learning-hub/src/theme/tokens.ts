@@ -124,7 +124,8 @@ export function themeConfig(mode: "light" | "dark"): ThemeConfig {
   const p = palette[mode];
   return {
     algorithm: mode === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
-    cssVar: { prefix: "ant", key: "learning-hub" },
+    // Separate scopes prevent SSR dark variables from overriding a client-side light switch.
+    cssVar: { prefix: "ant", key: `learning-hub-${mode}` },
     token: { ...shared, ...p },
     components: {
       // Layout surfaces are transparent so the aurora backdrop on <body> shows through; .lh-glass adds blur.

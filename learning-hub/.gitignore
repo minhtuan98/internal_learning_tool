@@ -1,1 +1,6 @@
 .vercel
+
+# QA private local state and generated V8 artifacts
+.qa/
+coverage/
+qa-dashboard/.vercel/

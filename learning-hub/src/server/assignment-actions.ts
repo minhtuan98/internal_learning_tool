@@ -51,6 +51,10 @@ export async function saveAssignment(id: string | null, i: Input): Promise<Actio
   if (!admin) return fail("Bạn không có quyền thực hiện thao tác này.");
   const err = validate(i);
   if (err) return fail(err);
+  const course = await prisma.course.findUnique({ where: { id: i.courseId } });
+  if (!course || course.status !== "PUBLISHED") return fail("Chỉ giao được khóa học đã xuất bản.");
+  const members = await resolveMembers(i.userIds, i.groupIds);
+  if (members.length === 0) return fail("Nhóm được chọn chưa có thành viên nào.");
   const targets = [...i.userIds.map((userId) => ({ userId })), ...i.groupIds.map((groupId) => ({ groupId }))];
   let assignmentId = id;
   if (id) {
@@ -61,7 +65,7 @@ export async function saveAssignment(id: string | null, i: Input): Promise<Actio
   } else {
     assignmentId = (await prisma.assignment.create({ data: { courseId: i.courseId, deadline: new Date(i.deadline), createdById: admin.id, targets: { create: targets } } })).id;
   }
-  const n = (await resolveMembers(i.userIds, i.groupIds)).length;
+  const n = members.length;
   revalidatePath("/admin/assignments");
   return { ok: true, data: { id: assignmentId! }, message: id ? "Đã lưu thay đổi giao bài." : `Đã giao bài cho ${n} người.` };
 }
