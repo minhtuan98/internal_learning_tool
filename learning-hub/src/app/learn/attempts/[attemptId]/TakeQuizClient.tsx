@@ -7,6 +7,7 @@ import { CheckCircleOutlined, ClockCircleOutlined, CloudSyncOutlined, Exclamatio
 import dayjs from "dayjs";
 import { attemptHeartbeat, reportViolation, saveAnswer, submitAttempt } from "@/server/member-actions";
 import type { ViolationType } from "@/lib/integrity";
+import { AWAY_MS, COUNTING_RULES, VIOLATION_RULES } from "@/lib/integrity-rules";
 
 const VIOLATION_TEXT: Record<ViolationType, string> = {
   TAB_HIDDEN: "Bạn vừa rời màn hình làm bài (chuyển tab hoặc thu nhỏ trình duyệt).",
@@ -16,7 +17,19 @@ const VIOLATION_TEXT: Record<ViolationType, string> = {
   PRINT: "Không được in bài thi.",
   PRINT_SCREEN: "Không được chụp màn hình bài thi.",
 };
-const AWAY_MS = 1500; // shorter absences (a notification stealing focus) are not counted
+
+/** What counts as a violation (shown on the quiz screen and in every warning). */
+function RulesList({ max }: { max: number }) {
+  return (
+    <div>
+      <Typography.Text strong style={{ fontSize: 13 }}>Tính là vi phạm</Typography.Text>
+      <ul style={{ margin: "6px 0 8px", paddingLeft: 18, fontSize: 13 }}>
+        {VIOLATION_RULES.map((r) => <li key={r.type}>{r.label}</li>)}
+      </ul>
+      <Typography.Text type="secondary" style={{ fontSize: 12 }}>{COUNTING_RULES(max)[0]} {COUNTING_RULES(max)[1]}</Typography.Text>
+    </div>
+  );
+}
 
 /** Repeating diagonal watermark (name · employee code · time) so a shared screenshot points back to its author. */
 function Watermark({ text }: { text: string }) {
@@ -75,15 +88,22 @@ export default function TakeQuizClient({
   const [violations, setViolations] = useState(attempt.violations);
   const [warn, setWarn] = useState<{ type: ViolationType; count: number; max: number } | null>(null);
   const lastReport = useRef<Partial<Record<ViolationType, number>>>({});
+  // One violation at a time: from the moment one is detected until the member presses "Tôi đã hiểu",
+  // nothing else is counted (also covers the wait for the server's answer).
+  const paused = useRef(false);
   const resultUrl = `/learn/attempts/${attempt.id}/result`;
   const report = useCallback(
     async (type: ViolationType, durationMs?: number) => {
-      if (submitted.current) return;
+      if (submitted.current || paused.current) return;
       const now = Date.now();
       if (now - (lastReport.current[type] ?? 0) < 2000) return; // one key held down = one violation
       lastReport.current[type] = now;
+      paused.current = true;
       const r = await reportViolation(attempt.id, type, durationMs);
-      if (!r.ok || !r.data) return;
+      if (!r.ok || !r.data) {
+        paused.current = false;
+        return;
+      }
       setViolations(r.data.count);
       if (r.data.voided) {
         submitted.current = true;
@@ -98,12 +118,17 @@ export default function TakeQuizClient({
     },
     [attempt.id, modal, router, resultUrl],
   );
+  const acknowledge = () => {
+    setWarn(null);
+    paused.current = false;
+  };
 
   // Leaving the quiz: tab hidden / window blurred, counted on return when away ≥ 1.5 s
   useEffect(() => {
     let leftAt: number | null = null;
     let kind: ViolationType = "WINDOW_BLUR";
     const leave = (k: ViolationType) => {
+      if (paused.current) return; // a warning is open: leaving now is not counted
       if (leftAt === null) {
         leftAt = Date.now();
         kind = k;
@@ -269,6 +294,9 @@ export default function TakeQuizClient({
               ))}
             </Flex>
             <Button type="primary" block icon={<SendOutlined />} loading={submitting} disabled={timeUp} onClick={() => setConfirm(true)}>Nộp bài</Button>
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
+              <RulesList max={integrity.maxViolations} />
+            </div>
           </Card>
         </Col>
       </Row>
@@ -277,10 +305,13 @@ export default function TakeQuizClient({
         title={warn ? `Cảnh báo vi phạm ${warn.count} / ${warn.max}` : ""}
         okText="Tôi đã hiểu, làm tiếp"
         cancelButtonProps={{ style: { display: "none" } }}
-        onOk={() => setWarn(null)}
-        onCancel={() => setWarn(null)}
+        onOk={acknowledge}
+        closable={false}
+        mask={{ closable: false }}
+        keyboard={false}
       >
         {warn && (
+          <Flex vertical gap={12}>
           <Alert
             type={warn.count >= warn.max ? "error" : "warning"}
             showIcon
@@ -291,6 +322,8 @@ export default function TakeQuizClient({
                 : `Vượt quá ${warn.max} lần, lượt thi sẽ bị hủy và tính 0 điểm. Quản trị viên xem được nhật ký vi phạm.`
             }
           />
+          <RulesList max={warn.max} />
+          </Flex>
         )}
       </Modal>
       <Modal

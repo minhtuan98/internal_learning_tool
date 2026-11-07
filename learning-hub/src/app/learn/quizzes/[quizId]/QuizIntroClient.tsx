@@ -7,6 +7,7 @@ import { PlayCircleOutlined, SafetyOutlined } from "@ant-design/icons";
 import { FootNote, PageHeader, PassTag } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 import { startAttempt } from "@/server/member-actions";
+import { COUNTING_RULES, VIOLATION_RULES } from "@/lib/integrity-rules";
 
 type Q = { id: string; title: string; questions: number; passScore: number; timeLimitMinutes: number; maxAttempts: number; opensAt: Date | null; closesAt: Date | null };
 type A = { id: string; number: number; status: string; score: number | null; passed: boolean | null; submittedAt: Date | null; auto: boolean; voided: boolean };
@@ -63,12 +64,15 @@ export default function QuizIntroClient({ course, quiz, check, deadline, locked,
               icon={<SafetyOutlined />}
               title="Quy định làm bài"
               description={
-                <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
-                  <li>Không chuyển tab, thu nhỏ trình duyệt hay chuyển sang ứng dụng khác trong lúc làm bài.</li>
-                  <li>Không sao chép, chuột phải, in hay chụp màn hình. Bài thi có hình chìm tên và mã nhân viên của bạn.</li>
-                  <li>Mỗi lần vi phạm sẽ có cảnh báo. Vượt quá {maxViolations} lần trong một lượt, lượt đó bị hủy, tính 0 điểm và vẫn mất lượt.</li>
-                  <li>Mỗi lượt có thứ tự câu hỏi và đáp án riêng.</li>
-                </ul>
+                <>
+                  <div style={{ marginTop: 4 }}>Trong lúc làm bài, các hành động sau <b>tính là vi phạm</b>:</div>
+                  <ul style={{ margin: "4px 0 8px", paddingLeft: 18 }}>
+                    {VIOLATION_RULES.map((r) => <li key={r.type}>{r.label}</li>)}
+                  </ul>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {COUNTING_RULES(maxViolations).map((t) => <li key={t}>{t}</li>)}
+                  </ul>
+                </>
               }
             />
             {check.ok ? (
