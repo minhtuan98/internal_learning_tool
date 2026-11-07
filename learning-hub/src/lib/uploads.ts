@@ -17,14 +17,27 @@ export const CONTENT_TYPES: Record<string, string> = {
   svg: "image/svg+xml",
 };
 
+/** Real image type from the file's first bytes; the browser-declared MIME type can be faked. */
+export function sniffImage(bytes: Uint8Array): "jpg" | "png" | "webp" | null {
+  const b = (i: number) => bytes[i];
+  if (bytes.length >= 3 && b(0) === 0xff && b(1) === 0xd8 && b(2) === 0xff) return "jpg";
+  if (bytes.length >= 8 && [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((v, i) => b(i) === v)) return "png";
+  const ascii = (from: number, to: number) => String.fromCharCode(...bytes.slice(from, to));
+  if (bytes.length >= 12 && ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return "webp";
+  return null;
+}
+
 /** Validates and stores an uploaded image. Returns the stored file name. */
 export async function saveImage(file: File): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
-  const ext = ALLOWED[file.type];
-  if (!ext) return { ok: false, error: "Chỉ nhận ảnh JPG, PNG hoặc WebP." };
+  if (!ALLOWED[file.type]) return { ok: false, error: "Chỉ nhận ảnh JPG, PNG hoặc WebP." };
   if (file.size > MAX_IMAGE_BYTES) return { ok: false, error: "Ảnh vượt quá 2 MB. Hãy chọn ảnh nhỏ hơn." };
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  // The content must really be a JPG / PNG / WebP image, whatever the declared type says
+  const ext = sniffImage(bytes);
+  if (!ext) return { ok: false, error: "Tệp không phải ảnh JPG, PNG hoặc WebP hợp lệ." };
   await mkdir(UPLOAD_DIR, { recursive: true });
   const name = `${randomUUID()}.${ext}`;
-  await writeFile(path.join(UPLOAD_DIR, name), Buffer.from(await file.arrayBuffer()));
+  await writeFile(path.join(UPLOAD_DIR, name), Buffer.from(bytes));
   return { ok: true, name };
 }
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { mocks } from "./setup";
 import { buildOrder, checkReturn, computeFlags, orderForAttempt, toDisplaySlot, toOriginalIndex } from "@/lib/integrity";
-import { attemptHeartbeat, reportViolation, saveAnswer } from "@/server/member-actions";
+import { acknowledgeWarning, attemptHeartbeat, reportViolation, saveAnswer } from "@/server/member-actions";
 import { updateMaxViolations } from "@/server/integrity-actions";
 import { setQuizReviewRelease } from "@/server/quiz-actions";
 
@@ -144,5 +144,43 @@ describe("F11 · Chống gian lận · Phát hiện chặt hơn (7/11)", () => {
     mocks.db.attempt.findUnique.mockResolvedValue(open({ sessionToken: "tab-1" }));
     await attemptHeartbeat("a1", "tab-1");
     expect(mocks.db.attempt.updateMany).toHaveBeenCalledWith({ where: { id: "a1", status: "IN_PROGRESS" }, data: expect.objectContaining({ leftAt: null }) });
+  });
+});
+
+describe("F12 · Cảnh báo chờ xác nhận (lỗi Codex 7/11)", () => {
+  const info = { ip: null, userAgent: null };
+  it("vi phạm được tính sẽ đặt cảnh báo chờ xác nhận", async () => {
+    mocks.db.attempt.findUnique.mockResolvedValue(open());
+    mocks.db.attempt.update.mockResolvedValue({ violations: 1 });
+    await reportViolation("a1", "COPY");
+    expect(mocks.db.attempt.update).toHaveBeenCalledWith({ where: { id: "a1" }, data: { violations: { increment: 1 }, warningPending: "COPY" } });
+  });
+  it("khi còn cảnh báo chờ xác nhận, server không tính thêm (chỉ ghi nhận)", async () => {
+    mocks.db.attempt.findUnique.mockResolvedValue(open({ violations: 2, warningPending: "TAB_HIDDEN" }));
+    const r = await reportViolation("a1", "CONTEXT_MENU");
+    expect(r).toMatchObject({ ok: true, data: { count: 2 } });
+    expect(mocks.db.attemptEvent.create).toHaveBeenCalledWith({ data: expect.objectContaining({ type: "CONTEXT_MENU", violation: false }) });
+    expect(mocks.db.attempt.update).not.toHaveBeenCalled();
+  });
+  it("rời trang > 3 giây khi cảnh báo chưa xác nhận: không tính LEFT_PAGE, cảnh báo cũ hiện lại", async () => {
+    const now = new Date("2026-11-07T10:00:10Z");
+    mocks.db.setting.findUnique.mockResolvedValue({ key: "quiz.maxViolations", value: "3" });
+    const r = await checkReturn({ id: "a1", status: "IN_PROGRESS", leftAt: new Date("2026-11-07T10:00:00Z"), lastSeenAt: now, violations: 2, warningPending: "TAB_HIDDEN" }, info, now);
+    expect(r).toMatchObject({ type: "TAB_HIDDEN", count: 2, max: 3, voided: false });
+    expect(mocks.db.attemptEvent.create).toHaveBeenCalledWith({ data: expect.objectContaining({ type: "LEFT_PAGE", violation: false }) });
+    expect(mocks.db.attempt.update).toHaveBeenCalledTimes(1); // only the leftAt / lastSeenAt reset, no increment
+  });
+  it("tải lại nhanh không làm mất cảnh báo chưa xác nhận", async () => {
+    const now = new Date("2026-11-07T10:00:01Z");
+    const r = await checkReturn({ id: "a1", status: "IN_PROGRESS", leftAt: new Date("2026-11-07T10:00:00Z"), lastSeenAt: now, violations: 1, warningPending: "COPY" }, info, now);
+    expect(r).toMatchObject({ type: "COPY", count: 1 });
+    expect(mocks.db.attemptEvent.create).not.toHaveBeenCalled();
+  });
+  it("bấm Tôi đã hiểu xóa cảnh báo chờ; chỉ chủ lượt thi", async () => {
+    mocks.db.attempt.findUnique.mockResolvedValue(open({ warningPending: "COPY" }));
+    expect((await acknowledgeWarning("a1")).ok).toBe(true);
+    expect(mocks.db.attempt.updateMany).toHaveBeenCalledWith({ where: { id: "a1", status: "IN_PROGRESS" }, data: { warningPending: null } });
+    mocks.db.attempt.findUnique.mockResolvedValue(open({ userId: "other" }));
+    expect((await acknowledgeWarning("a1")).ok).toBe(false);
   });
 });

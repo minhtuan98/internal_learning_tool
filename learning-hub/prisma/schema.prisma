@@ -177,6 +177,7 @@ model Attempt {
   sessionToken  String? // first browser tab that opened the attempt
   lastSeenAt    DateTime? // last heartbeat from the open quiz page (every 10 s)
   leftAt        DateTime? // the quiz page was closed / reloaded / left (beacon); cleared on return
+  warningPending String? // type of the violation warning not yet acknowledged ("Tôi đã hiểu"); nothing more is counted meanwhile
 
   answers Answer[]
   events  AttemptEvent[]

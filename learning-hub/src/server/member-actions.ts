@@ -91,7 +91,19 @@ export async function reportViolation(attemptId: string, type: ViolationType, du
   if (!a || a.userId !== user.id) return fail("Không tìm thấy lượt làm bài.");
   if (a.status !== "IN_PROGRESS") return { ok: true, data: { count: a.violations, max: await getMaxViolations(), voided: a.voided } };
   const ms = Number.isFinite(durationMs) ? Math.max(0, Math.min(Math.round(durationMs!), 86_400_000)) : null;
-  return { ok: true, data: await recordViolation(attemptId, type, ms, await clientInfo(), !signalOnly) };
+  // Server-side guard: while a warning is pending, nothing more is counted (only logged)
+  const counted = !signalOnly && !a.warningPending;
+  return { ok: true, data: await recordViolation(attemptId, type, ms, await clientInfo(), counted) };
+}
+
+/** The member pressed "Tôi đã hiểu, làm tiếp": counting resumes. */
+export async function acknowledgeWarning(attemptId: string): Promise<ActionResult> {
+  const user = await actionMember();
+  if (!user) return fail("Phiên đăng nhập đã hết hạn.");
+  const a = await prisma.attempt.findUnique({ where: { id: attemptId } });
+  if (!a || a.userId !== user.id) return fail("Không tìm thấy lượt làm bài.");
+  await prisma.attempt.updateMany({ where: { id: attemptId, status: "IN_PROGRESS" }, data: { warningPending: null } });
+  return { ok: true };
 }
 
 /**

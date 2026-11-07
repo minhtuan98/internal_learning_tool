@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Alert, App, Button, Card, Col, Flex, Modal, Progress, Radio, Row, Tag, Typography, theme } from "antd";
 import { CheckCircleOutlined, ClockCircleOutlined, CloudSyncOutlined, ExclamationCircleOutlined, SafetyOutlined, SendOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { attemptHeartbeat, reportViolation, saveAnswer, submitAttempt } from "@/server/member-actions";
+import { acknowledgeWarning, attemptHeartbeat, reportViolation, saveAnswer, submitAttempt } from "@/server/member-actions";
 import type { ViolationType } from "@/lib/integrity";
 import { BLUR_MIN_MS, COUNTING_RULES, TAB_MIN_MS, VIOLATION_RULES } from "@/lib/integrity-rules";
 
@@ -161,9 +161,20 @@ export default function TakeQuizClient({
     },
     [send, message, modal, router, resultUrl],
   );
-  const acknowledge = () => {
-    setWarn(null);
-    paused.current = false;
+  // The server keeps the warning pending (also across reloads) until this succeeds; only then counting resumes
+  const [acking, setAcking] = useState(false);
+  const acknowledge = async () => {
+    setAcking(true);
+    try {
+      const r = await acknowledgeWarning(attempt.id);
+      if (!r.ok) throw new Error(r.error);
+      setWarn(null);
+      paused.current = false;
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : "Chưa gửi được xác nhận. Hãy thử lại.");
+    } finally {
+      setAcking(false);
+    }
   };
 
   // Leaving the quiz, measured on return: tab hidden from 0.2 s, another app / window from 1 s
@@ -370,6 +381,7 @@ export default function TakeQuizClient({
         okText="Tôi đã hiểu, làm tiếp"
         cancelButtonProps={{ style: { display: "none" } }}
         onOk={acknowledge}
+        confirmLoading={acking}
         closable={false}
         mask={{ closable: false }}
         keyboard={false}

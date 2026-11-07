@@ -119,9 +119,10 @@ export async function recordViolation(attemptId: string, type: string, durationM
     const a = await prisma.attempt.findUnique({ where: { id: attemptId }, select: { violations: true } });
     return { count: a?.violations ?? 0, max, voided: false };
   }
+  // The warning for this violation stays pending until the member acknowledges it (server-side, survives reloads)
   const [, updated] = await prisma.$transaction([
     prisma.attemptEvent.create({ data: { attemptId, type, durationMs, ...info } }),
-    prisma.attempt.update({ where: { id: attemptId }, data: { violations: { increment: 1 } } }),
+    prisma.attempt.update({ where: { id: attemptId }, data: { violations: { increment: 1 }, warningPending: type } }),
   ]);
   const voided = updated.violations > max;
   if (voided) await voidAttempt(attemptId);
@@ -137,15 +138,23 @@ export const STALE_MS = 25_000;
  * Runs when the quiz page is (re)opened. If the member closed / reloaded / left the page (beacon → leftAt,
  * or heartbeats stopped) for ≥ 3 s, that counts as LEFT_PAGE. Returns the warning to show, if any.
  */
-export async function checkReturn(a: { id: string; status: string; leftAt: Date | null; lastSeenAt: Date | null }, info: ClientInfo, now = new Date()) {
+export async function checkReturn(
+  a: { id: string; status: string; leftAt: Date | null; lastSeenAt: Date | null; violations?: number; warningPending?: string | null },
+  info: ClientInfo,
+  now = new Date(),
+) {
   if (a.status !== "IN_PROGRESS") return null;
   const stale = a.lastSeenAt && now.getTime() - a.lastSeenAt.getTime() > STALE_MS ? a.lastSeenAt : null;
   const from = a.leftAt ?? stale;
   // The previous tab is gone, so the reopened tab takes over its token (no "several tabs" flag)
   await prisma.attempt.update({ where: { id: a.id }, data: { leftAt: null, lastSeenAt: now, ...(from ? { sessionToken: null } : {}) } });
-  if (!from) return null;
-  const away = now.getTime() - from.getTime();
-  if (away < LEFT_PAGE_MS) return null;
+  const away = from ? now.getTime() - from.getTime() : 0;
+  if (a.warningPending) {
+    // A warning is still waiting for "Tôi đã hiểu": this absence is only logged, and the same warning comes back
+    if (from && away >= LEFT_PAGE_MS) await recordViolation(a.id, "LEFT_PAGE", away, info, false);
+    return { type: a.warningPending, count: a.violations ?? 0, max: await getMaxViolations(), voided: false };
+  }
+  if (!from || away < LEFT_PAGE_MS) return null;
   return { type: "LEFT_PAGE", ...(await recordViolation(a.id, "LEFT_PAGE", away, info)) };
 }
 
