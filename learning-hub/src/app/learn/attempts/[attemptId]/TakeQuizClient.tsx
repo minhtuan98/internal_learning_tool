@@ -7,16 +7,28 @@ import { CheckCircleOutlined, ClockCircleOutlined, CloudSyncOutlined, Exclamatio
 import dayjs from "dayjs";
 import { attemptHeartbeat, reportViolation, saveAnswer, submitAttempt } from "@/server/member-actions";
 import type { ViolationType } from "@/lib/integrity";
-import { AWAY_MS, COUNTING_RULES, VIOLATION_RULES } from "@/lib/integrity-rules";
+import { BLUR_MIN_MS, COUNTING_RULES, TAB_MIN_MS, VIOLATION_RULES } from "@/lib/integrity-rules";
 
-const VIOLATION_TEXT: Record<ViolationType, string> = {
+const VIOLATION_TEXT: Record<string, string> = {
   TAB_HIDDEN: "Bạn vừa rời màn hình làm bài (chuyển tab hoặc thu nhỏ trình duyệt).",
   WINDOW_BLUR: "Bạn vừa chuyển sang ứng dụng hoặc cửa sổ khác.",
   COPY: "Không được sao chép nội dung bài thi.",
   CONTEXT_MENU: "Không được dùng chuột phải trong bài thi.",
   PRINT: "Không được in bài thi.",
   PRINT_SCREEN: "Không được chụp màn hình bài thi.",
+  DEVTOOLS: "Không được mở công cụ nhà phát triển trong bài thi.",
+  LEFT_PAGE: "Bạn vừa đóng, tải lại hoặc rời trang bài thi rồi quay lại.",
 };
+const RETRIES = [0, 1000, 3000]; // a violation is re-sent if the network drops; it is never lost silently
+
+/** F12, Ctrl/Cmd+Shift+I/J/C, Cmd+Option+I/J/C, Ctrl/Cmd+U (view source). */
+function isDevtoolsKey(e: KeyboardEvent) {
+  const k = e.key.toLowerCase();
+  if (e.key === "F12") return true;
+  if ((e.ctrlKey || e.metaKey) && (e.shiftKey || e.altKey) && ["i", "j", "c"].includes(k)) return true;
+  if ((e.ctrlKey || e.metaKey) && k === "u") return true;
+  return false;
+}
 
 /** What counts as a violation (shown on the quiz screen and in every warning). */
 function RulesList({ max }: { max: number }) {
@@ -46,9 +58,12 @@ export default function TakeQuizClient({
   questions,
   answers: initial,
   integrity,
+  pendingWarning,
 }: {
   attempt: { id: string; number: number; deadlineAt: string; serverNow: string; violations: number };
   integrity: { maxViolations: number; viewer: string };
+  /** Set by the server when the member came back after leaving the page (LEFT_PAGE). */
+  pendingWarning?: { type: string; count: number; max: number } | null;
   quiz: { id: string; title: string; maxAttempts: number; course: string };
   questions: { id: string; text: string; options: string[] }[];
   answers: Record<string, number>;
@@ -86,49 +101,76 @@ export default function TakeQuizClient({
 
   // ---------- Anti-cheat (DESIGN_SYSTEM.md → Quiz integrity) ----------
   const [violations, setViolations] = useState(attempt.violations);
-  const [warn, setWarn] = useState<{ type: ViolationType; count: number; max: number } | null>(null);
+  const [warn, setWarn] = useState<{ type: string; count: number; max: number } | null>(pendingWarning ?? null);
   const lastReport = useRef<Partial<Record<ViolationType, number>>>({});
   // One violation at a time: from the moment one is detected until the member presses "Tôi đã hiểu",
   // nothing else is counted (also covers the wait for the server's answer).
-  const paused = useRef(false);
+  const paused = useRef(Boolean(pendingWarning));
+  const unsent = useRef<{ type: ViolationType; durationMs?: number; signalOnly: boolean }[]>([]);
+  const send = useCallback(
+    async (type: ViolationType, durationMs: number | undefined, signalOnly: boolean) => {
+      for (const wait of RETRIES) {
+        if (wait) await new Promise((r) => setTimeout(r, wait));
+        try {
+          const r = await reportViolation(attempt.id, type, durationMs, signalOnly);
+          if (r.ok) return r.data ?? null;
+          return null; // refused by the server (attempt over, not yours): nothing to retry
+        } catch {
+          /* network / server down: retry */
+        }
+      }
+      unsent.current.push({ type, durationMs, signalOnly }); // re-sent with the next heartbeat
+      return null;
+    },
+    [attempt.id],
+  );
   const resultUrl = `/learn/attempts/${attempt.id}/result`;
   const report = useCallback(
     async (type: ViolationType, durationMs?: number) => {
-      if (submitted.current || paused.current) return;
+      if (submitted.current) return;
+      if (paused.current) {
+        // A warning is open: not counted (Product Owner rule), but logged so admins still see it
+        if (type === "TAB_HIDDEN" || type === "WINDOW_BLUR") void send(type, durationMs, true);
+        return;
+      }
       const now = Date.now();
       if (now - (lastReport.current[type] ?? 0) < 2000) return; // one key held down = one violation
       lastReport.current[type] = now;
       paused.current = true;
-      const r = await reportViolation(attempt.id, type, durationMs);
-      if (!r.ok || !r.data) {
-        paused.current = false;
+      let data: Awaited<ReturnType<typeof send>> = null;
+      try {
+        data = await send(type, durationMs, false);
+      } finally {
+        if (!data) paused.current = false; // never leave detection switched off
+      }
+      if (!data) {
+        message.warning("Mất kết nối: vi phạm sẽ được ghi nhận khi có mạng trở lại.");
         return;
       }
-      setViolations(r.data.count);
-      if (r.data.voided) {
+      setViolations(data.count);
+      if (data.voided) {
         submitted.current = true;
         setWarn(null);
         modal.error({
           title: "Lượt thi đã bị hủy",
-          content: `Bạn đã vi phạm ${r.data.count} lần, vượt quá ${r.data.max} lần cho phép. Lượt này tính 0 điểm và vẫn tính là một lượt đã dùng.`,
+          content: `Bạn đã vi phạm ${data.count} lần, vượt quá ${data.max} lần cho phép. Lượt này tính 0 điểm và vẫn tính là một lượt đã dùng.`,
           okText: "Xem kết quả",
           onOk: () => router.replace(resultUrl),
         });
-      } else setWarn({ type, count: r.data.count, max: r.data.max });
+      } else setWarn({ type, count: data.count, max: data.max });
     },
-    [attempt.id, modal, router, resultUrl],
+    [send, message, modal, router, resultUrl],
   );
   const acknowledge = () => {
     setWarn(null);
     paused.current = false;
   };
 
-  // Leaving the quiz: tab hidden / window blurred, counted on return when away ≥ 1.5 s
+  // Leaving the quiz, measured on return: tab hidden from 0.2 s, another app / window from 1 s
   useEffect(() => {
     let leftAt: number | null = null;
     let kind: ViolationType = "WINDOW_BLUR";
     const leave = (k: ViolationType) => {
-      if (paused.current) return; // a warning is open: leaving now is not counted
       if (leftAt === null) {
         leftAt = Date.now();
         kind = k;
@@ -138,7 +180,7 @@ export default function TakeQuizClient({
       if (leftAt === null) return;
       const away = Date.now() - leftAt;
       leftAt = null;
-      if (away >= AWAY_MS) report(kind, away);
+      if (away >= (kind === "TAB_HIDDEN" ? TAB_MIN_MS : BLUR_MIN_MS)) report(kind, away);
     };
     const onVisibility = () => (document.hidden ? leave("TAB_HIDDEN") : back());
     const onBlur = () => leave(document.hidden ? "TAB_HIDDEN" : "WINDOW_BLUR");
@@ -151,6 +193,10 @@ export default function TakeQuizClient({
     const onCopy = block("COPY");
     const onMenu = block("CONTEXT_MENU");
     const onKey = (e: KeyboardEvent) => {
+      if (isDevtoolsKey(e)) {
+        e.preventDefault();
+        report("DEVTOOLS");
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
         e.preventDefault();
         report("PRINT");
@@ -191,13 +237,31 @@ export default function TakeQuizClient({
       tabToken = crypto.randomUUID();
     }
     const ping = async () => {
-      const r = await attemptHeartbeat(attempt.id, tabToken);
-      if (r.ok && r.data?.status === "SUBMITTED" && !submitted.current) router.replace(resultUrl); // ended elsewhere
+      try {
+        const r = await attemptHeartbeat(attempt.id, tabToken);
+        if (r.ok && r.data?.status === "SUBMITTED" && !submitted.current) router.replace(resultUrl); // ended elsewhere
+        // violations that could not be sent earlier (network down) are counted now
+        for (const v of unsent.current.splice(0)) {
+          if (v.signalOnly) void send(v.type, v.durationMs, true);
+          else void report(v.type, v.durationMs);
+        }
+      } catch {
+        /* offline: next ping */
+      }
     };
     ping();
-    const t = setInterval(ping, 30_000);
-    return () => clearInterval(t);
-  }, [attempt.id, router, resultUrl]);
+    const t = setInterval(ping, 10_000);
+    // Closing, reloading or leaving the page: tell the server; coming back ≥ 3 s later counts (LEFT_PAGE)
+    const beacon = () => {
+      if (!submitted.current) navigator.sendBeacon(`/api/attempts/${attempt.id}/leave`);
+    };
+    window.addEventListener("pagehide", beacon);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("pagehide", beacon);
+      beacon(); // left the quiz inside the app (menu link, back button)
+    };
+  }, [attempt.id, router, resultUrl, send, report]);
 
   const [stamp, setStamp] = useState(() => dayjs().format("HH:mm DD/MM/YYYY"));
   useEffect(() => {

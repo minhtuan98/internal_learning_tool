@@ -175,6 +175,8 @@ model Attempt {
   voided        Boolean @default(false) // over the admin threshold → 0 points, attempt used
   ip            String? // network at start (for "same network" flags)
   sessionToken  String? // first browser tab that opened the attempt
+  lastSeenAt    DateTime? // last heartbeat from the open quiz page (every 10 s)
+  leftAt        DateTime? // the quiz page was closed / reloaded / left (beacon); cleared on return
 
   answers Answer[]
   events  AttemptEvent[]
@@ -185,7 +187,7 @@ model AttemptEvent {
   id         String   @id @default(cuid())
   attemptId  String
   attempt    Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  type       String // TAB_HIDDEN | WINDOW_BLUR | COPY | CONTEXT_MENU | PRINT | PRINT_SCREEN | MULTI_SESSION | VOIDED
+  type       String // TAB_HIDDEN | WINDOW_BLUR | COPY | CONTEXT_MENU | PRINT | PRINT_SCREEN | DEVTOOLS | LEFT_PAGE | MULTI_SESSION | VOIDED
   violation  Boolean  @default(true) // false = signal only (flag), not counted
   durationMs Int?
   detail     String? // e.g. the other tab token for MULTI_SESSION

@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 import { requireMember } from "@/lib/auth";
 import { finalizeExpiredAttempts } from "@/lib/quiz";
 import { parseOptions } from "@/lib/types";
-import { getMaxViolations, orderForAttempt, toDisplaySlot } from "@/lib/integrity";
+import { checkReturn, getMaxViolations, orderForAttempt, toDisplaySlot } from "@/lib/integrity";
+import { clientInfo } from "@/lib/client-info";
 import { displayName } from "@/lib/format";
 import TakeQuizClient from "./TakeQuizClient";
 
@@ -17,10 +18,14 @@ export default async function TakeQuizPage({ params }: { params: Promise<{ attem
   });
   if (!a || a.userId !== user.id) notFound();
   if (a.status === "SUBMITTED") redirect(`/learn/attempts/${a.id}/result`);
+  // Came back after closing / reloading / leaving the page for ≥ 3 s → LEFT_PAGE violation (may void the attempt)
+  const back = await checkReturn(a, await clientInfo());
+  if (back?.voided) redirect(`/learn/attempts/${a.id}/result`);
   const maxViolations = await getMaxViolations();
   return (
     <TakeQuizClient
-      attempt={{ id: a.id, number: a.number, deadlineAt: a.deadlineAt.toISOString(), serverNow: new Date().toISOString(), violations: a.violations }}
+      attempt={{ id: a.id, number: a.number, deadlineAt: a.deadlineAt.toISOString(), serverNow: new Date().toISOString(), violations: back?.count ?? a.violations }}
+      pendingWarning={back}
       quiz={{ id: a.quiz.id, title: a.quiz.title, maxAttempts: a.quiz.maxAttempts, course: a.quiz.course.title }}
       // Correct answers are never sent to the browser. Questions and options come in this attempt's own order.
       questions={orderForAttempt(a, a.quiz.questions.map((q) => ({ id: q.id, text: q.text, options: parseOptions(q.options) })))}

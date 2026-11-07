@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { mocks } from "./setup";
-import { buildOrder, computeFlags, orderForAttempt, toDisplaySlot, toOriginalIndex } from "@/lib/integrity";
+import { buildOrder, checkReturn, computeFlags, orderForAttempt, toDisplaySlot, toOriginalIndex } from "@/lib/integrity";
 import { attemptHeartbeat, reportViolation, saveAnswer } from "@/server/member-actions";
 import { updateMaxViolations } from "@/server/integrity-actions";
 import { setQuizReviewRelease } from "@/server/quiz-actions";
@@ -96,5 +96,53 @@ describe("F11 · Chống gian lận · Cờ bất thường", () => {
     const a = { ...base, id: "a", userId: "u1", ip: "1.1.1.1", startedAt: new Date("2026-11-06T10:00:00Z"), submittedAt: new Date("2026-11-06T10:09:00Z"), answers };
     const b = { ...a, id: "b" };
     expect(computeFlags([a, b]).size).toBe(0);
+  });
+});
+
+describe("F11 · Chống gian lận · Phát hiện chặt hơn (7/11)", () => {
+  const info = { ip: null, userAgent: null };
+  it("rời trang lúc cảnh báo đang mở: chỉ ghi nhận, không tính", async () => {
+    mocks.db.attempt.findUnique.mockResolvedValue(open({ violations: 1 }));
+    const r = await reportViolation("a1", "TAB_HIDDEN", 5000, true);
+    expect(r).toMatchObject({ ok: true, data: { count: 1, voided: false } });
+    expect(mocks.db.attemptEvent.create).toHaveBeenCalledWith({ data: expect.objectContaining({ type: "TAB_HIDDEN", violation: false }) });
+    expect(mocks.db.attempt.update).not.toHaveBeenCalled();
+  });
+  it("mở công cụ nhà phát triển là vi phạm", async () => {
+    mocks.db.attempt.findUnique.mockResolvedValue(open());
+    mocks.db.attempt.update.mockResolvedValue({ violations: 1 });
+    expect((await reportViolation("a1", "DEVTOOLS")).ok).toBe(true);
+    expect(mocks.db.attemptEvent.create).toHaveBeenCalledWith({ data: expect.objectContaining({ type: "DEVTOOLS" }) });
+  });
+  it("trình duyệt không được tự báo LEFT_PAGE", async () => {
+    expect((await reportViolation("a1", "LEFT_PAGE" as never)).ok).toBe(false);
+  });
+  it("đóng tab 10 giây rồi mở lại → tính LEFT_PAGE", async () => {
+    const now = new Date("2026-11-07T10:00:10Z");
+    mocks.db.attempt.update.mockResolvedValueOnce({}).mockResolvedValueOnce({ violations: 1 });
+    const r = await checkReturn({ id: "a1", status: "IN_PROGRESS", leftAt: new Date("2026-11-07T10:00:00Z"), lastSeenAt: new Date("2026-11-07T09:59:58Z") }, info, now);
+    expect(r).toMatchObject({ type: "LEFT_PAGE", count: 1, voided: false });
+    expect(mocks.db.attemptEvent.create).toHaveBeenCalledWith({ data: expect.objectContaining({ type: "LEFT_PAGE", durationMs: 10_000 }) });
+  });
+  it("tải lại trang 1 giây → không tính", async () => {
+    const now = new Date("2026-11-07T10:00:01Z");
+    expect(await checkReturn({ id: "a1", status: "IN_PROGRESS", leftAt: new Date("2026-11-07T10:00:00Z"), lastSeenAt: new Date("2026-11-07T09:59:55Z") }, info, now)).toBeNull();
+    expect(mocks.db.attemptEvent.create).not.toHaveBeenCalled();
+  });
+  it("không có beacon nhưng mất heartbeat > 25 giây → tính LEFT_PAGE", async () => {
+    const now = new Date("2026-11-07T10:01:00Z");
+    mocks.db.attempt.update.mockResolvedValueOnce({}).mockResolvedValueOnce({ violations: 2 });
+    const r = await checkReturn({ id: "a1", status: "IN_PROGRESS", leftAt: null, lastSeenAt: new Date("2026-11-07T10:00:00Z") }, info, now);
+    expect(r).toMatchObject({ type: "LEFT_PAGE", count: 2 });
+  });
+  it("mở lần đầu hoặc lượt đã nộp → không tính", async () => {
+    expect(await checkReturn({ id: "a1", status: "IN_PROGRESS", leftAt: null, lastSeenAt: null }, info)).toBeNull();
+    expect(await checkReturn({ id: "a1", status: "SUBMITTED", leftAt: new Date(0), lastSeenAt: null }, info)).toBeNull();
+    expect(mocks.db.attemptEvent.create).not.toHaveBeenCalled();
+  });
+  it("heartbeat làm mới lastSeenAt và xóa mốc rời trang", async () => {
+    mocks.db.attempt.findUnique.mockResolvedValue(open({ sessionToken: "tab-1" }));
+    await attemptHeartbeat("a1", "tab-1");
+    expect(mocks.db.attempt.updateMany).toHaveBeenCalledWith({ where: { id: "a1", status: "IN_PROGRESS" }, data: expect.objectContaining({ leftAt: null }) });
   });
 });

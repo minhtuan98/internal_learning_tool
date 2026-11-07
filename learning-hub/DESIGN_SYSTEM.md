@@ -83,7 +83,9 @@ Code: `src/lib/integrity.ts`, `reportViolation` / `attemptHeartbeat` in `src/ser
 | Rule | Behaviour |
 |---|---|
 | Shuffle | Each attempt stores its own question order and option order (`Attempt.questionOrder`, `optionOrders`). The browser sends the slot it showed; the server stores the original index. |
-| Violations | Leaving the quiz (tab hidden / other app, away ≥ 1.5 s), copy/cut, right-click, Ctrl+P / print, Print Screen. Each one is logged (`AttemptEvent`) with a warning "Vi phạm x / N". From the moment one is detected until the member presses "Tôi đã hiểu, làm tiếp", nothing else is counted; the warning cannot be closed any other way. |
+| Violations | Tab hidden / minimised (from 0.2 s), another app or window focused (from 1 s), closing / reloading / leaving the quiz page and coming back after ≥ 3 s (`LEFT_PAGE`, server-side: beacon on `pagehide` + 10 s heartbeat), copy/cut, right-click, Ctrl/Cmd+P / print, Print Screen, DevTools keys (F12, Ctrl/Cmd+Shift/Option+I/J/C, Ctrl/Cmd+U). Each one is logged (`AttemptEvent`) with a warning "Vi phạm x / N". |
+| One at a time | From detection until the member presses "Tôi đã hiểu, làm tiếp" nothing else is counted; leaving the quiz meanwhile is still logged as a signal (`violation = false`) for admins. The warning closes only with that button. |
+| Never lost | A violation that cannot reach the server is retried (0 s, 1 s, 3 s) and then re-sent with the next heartbeat; detection is never switched off by an error. |
 | Rules shown | The list of what counts (`src/lib/integrity-rules.ts`) is shown on the quiz intro, beside the questions while taking the quiz, and in every warning. |
 | Threshold | N = admin setting `quiz.maxViolations` (default 3, 0–20), global for all courses, counted per attempt. Violation N+1 voids the attempt: 0 points, not passed, the attempt stays used. |
 | Review | Per-question right/wrong is hidden until an admin switches on "Thành viên xem đúng/sai từng câu" on the quiz (`Quiz.reviewReleased`). |

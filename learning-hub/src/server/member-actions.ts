@@ -1,26 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { actionMember } from "@/lib/auth";
 import { fail, type ActionResult } from "@/lib/types";
 import { deadlineLock, hasCourseAccess } from "@/lib/access";
 import { checkCanStart, finalizeAttempt } from "@/lib/quiz";
 import { issueCertificates } from "@/lib/certificates";
-import { buildOrder, getMaxViolations, toOriginalIndex, VIOLATION_TYPES, voidAttempt, type ViolationType } from "@/lib/integrity";
+import { buildOrder, getMaxViolations, recordViolation, toOriginalIndex, VIOLATION_TYPES, type ViolationType } from "@/lib/integrity";
 import { parseOptions } from "@/lib/types";
-
-/** Client network + browser, for anti-cheat signals (never used to block on its own). */
-async function clientInfo(): Promise<{ ip: string | null; userAgent: string | null }> {
-  try {
-    const h = await headers();
-    const ip = (h.get("x-forwarded-for") ?? h.get("x-real-ip") ?? "").split(",")[0].trim() || null;
-    return { ip, userAgent: h.get("user-agent")?.slice(0, 300) ?? null };
-  } catch {
-    return { ip: null, userAgent: null }; // outside a request (scripts, tests)
-  }
-}
+import { clientInfo } from "@/lib/client-info";
 
 export async function completeLesson(lessonId: string): Promise<ActionResult> {
   const user = await actionMember();
@@ -90,30 +79,23 @@ export async function submitAttempt(attemptId: string, auto = false): Promise<Ac
 }
 
 /**
- * Anti-cheat: one violation (left the quiz, copy, right-click, print, Print Screen) during an open attempt.
- * Over the admin threshold the attempt is voided (0 points, attempt used).
+ * Anti-cheat: one violation (left the quiz, copy, right-click, print, Print Screen, DevTools) during an open
+ * attempt. Over the admin threshold the attempt is voided (0 points, attempt used). signalOnly = logged for
+ * admins but not counted (e.g. leaving the page while a warning is still open).
  */
-export async function reportViolation(attemptId: string, type: ViolationType, durationMs?: number): Promise<ActionResult<{ count: number; max: number; voided: boolean }>> {
+export async function reportViolation(attemptId: string, type: ViolationType, durationMs?: number, signalOnly = false): Promise<ActionResult<{ count: number; max: number; voided: boolean }>> {
   const user = await actionMember();
   if (!user) return fail("Phiên đăng nhập đã hết hạn.");
   if (!VIOLATION_TYPES.includes(type)) return fail("Loại vi phạm không hợp lệ.");
   const a = await prisma.attempt.findUnique({ where: { id: attemptId } });
   if (!a || a.userId !== user.id) return fail("Không tìm thấy lượt làm bài.");
-  const max = await getMaxViolations();
-  if (a.status !== "IN_PROGRESS") return { ok: true, data: { count: a.violations, max, voided: a.voided } };
-  const info = await clientInfo();
+  if (a.status !== "IN_PROGRESS") return { ok: true, data: { count: a.violations, max: await getMaxViolations(), voided: a.voided } };
   const ms = Number.isFinite(durationMs) ? Math.max(0, Math.min(Math.round(durationMs!), 86_400_000)) : null;
-  const [, updated] = await prisma.$transaction([
-    prisma.attemptEvent.create({ data: { attemptId, type, durationMs: ms, ...info } }),
-    prisma.attempt.update({ where: { id: attemptId }, data: { violations: { increment: 1 } } }),
-  ]);
-  const voided = updated.violations > max;
-  if (voided) await voidAttempt(attemptId);
-  return { ok: true, data: { count: updated.violations, max, voided } };
+  return { ok: true, data: await recordViolation(attemptId, type, ms, await clientInfo(), !signalOnly) };
 }
 
 /**
- * Anti-cheat signal: the open quiz pings every ~30 s with a per-tab token. A second token on the same
+ * Anti-cheat signal: the open quiz pings every 10 s with a per-tab token (also keeps lastSeenAt fresh). A second token on the same
  * attempt (another tab or device) is logged once as MULTI_SESSION — a flag for admins, not a violation.
  */
 export async function attemptHeartbeat(attemptId: string, tabToken: string): Promise<ActionResult<{ status: string }>> {
@@ -123,6 +105,8 @@ export async function attemptHeartbeat(attemptId: string, tabToken: string): Pro
   const a = await prisma.attempt.findUnique({ where: { id: attemptId } });
   if (!a || a.userId !== user.id) return fail("Không tìm thấy lượt làm bài.");
   if (a.status !== "IN_PROGRESS" || !token) return { ok: true, data: { status: a.status } };
+  // The page is alive: refresh lastSeenAt and drop any stray "left" stamp (e.g. a beacon from a re-mounted effect)
+  await prisma.attempt.updateMany({ where: { id: attemptId, status: "IN_PROGRESS" }, data: { lastSeenAt: new Date(), leftAt: null } });
   if (!a.sessionToken) {
     await prisma.attempt.updateMany({ where: { id: attemptId, sessionToken: null }, data: { sessionToken: token } });
   } else if (a.sessionToken !== token) {

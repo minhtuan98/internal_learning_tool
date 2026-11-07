@@ -11,7 +11,8 @@ import { prisma } from "./db";
  *   are only flagged for admins.
  */
 
-export const VIOLATION_TYPES = ["TAB_HIDDEN", "WINDOW_BLUR", "COPY", "CONTEXT_MENU", "PRINT", "PRINT_SCREEN"] as const;
+/** Violations the quiz page may report. LEFT_PAGE is detected by the server when the member comes back. */
+export const VIOLATION_TYPES = ["TAB_HIDDEN", "WINDOW_BLUR", "COPY", "CONTEXT_MENU", "PRINT", "PRINT_SCREEN", "DEVTOOLS"] as const;
 export type ViolationType = (typeof VIOLATION_TYPES)[number];
 
 export const EVENT_LABEL: Record<string, string> = {
@@ -21,6 +22,8 @@ export const EVENT_LABEL: Record<string, string> = {
   CONTEXT_MENU: "Chuột phải",
   PRINT: "In trang",
   PRINT_SCREEN: "Phím chụp màn hình",
+  DEVTOOLS: "Mở công cụ nhà phát triển",
+  LEFT_PAGE: "Đóng / tải lại / rời trang bài thi rồi quay lại",
   MULTI_SESSION: "Mở lượt thi ở tab/thiết bị khác",
   VOIDED: "Hủy lượt do vượt ngưỡng",
 };
@@ -101,6 +104,49 @@ export async function voidAttempt(attemptId: string) {
     prisma.attempt.update({ where: { id: attemptId }, data: { status: "SUBMITTED", voided: true, submittedAt: now, score: 0, passed: false, correctCount: 0 } }),
     prisma.attemptEvent.create({ data: { attemptId, type: "VOIDED", violation: false } }),
   ]);
+}
+
+type ClientInfo = { ip: string | null; userAgent: string | null };
+
+/**
+ * Logs one event. Counted violations add 1 to the attempt and void it above the admin threshold;
+ * signal-only events (counted = false, e.g. leaving while a warning is open) are just logged for admins.
+ */
+export async function recordViolation(attemptId: string, type: string, durationMs: number | null, info: ClientInfo, counted = true) {
+  const max = await getMaxViolations();
+  if (!counted) {
+    await prisma.attemptEvent.create({ data: { attemptId, type, violation: false, durationMs, ...info } });
+    const a = await prisma.attempt.findUnique({ where: { id: attemptId }, select: { violations: true } });
+    return { count: a?.violations ?? 0, max, voided: false };
+  }
+  const [, updated] = await prisma.$transaction([
+    prisma.attemptEvent.create({ data: { attemptId, type, durationMs, ...info } }),
+    prisma.attempt.update({ where: { id: attemptId }, data: { violations: { increment: 1 } } }),
+  ]);
+  const voided = updated.violations > max;
+  if (voided) await voidAttempt(attemptId);
+  return { count: updated.violations, max, voided };
+}
+
+/** A reload shorter than this is not "leaving the quiz". */
+export const LEFT_PAGE_MS = 3000;
+/** No heartbeat for this long (heartbeat = 10 s) means the page was gone even if no beacon arrived. */
+export const STALE_MS = 25_000;
+
+/**
+ * Runs when the quiz page is (re)opened. If the member closed / reloaded / left the page (beacon → leftAt,
+ * or heartbeats stopped) for ≥ 3 s, that counts as LEFT_PAGE. Returns the warning to show, if any.
+ */
+export async function checkReturn(a: { id: string; status: string; leftAt: Date | null; lastSeenAt: Date | null }, info: ClientInfo, now = new Date()) {
+  if (a.status !== "IN_PROGRESS") return null;
+  const stale = a.lastSeenAt && now.getTime() - a.lastSeenAt.getTime() > STALE_MS ? a.lastSeenAt : null;
+  const from = a.leftAt ?? stale;
+  // The previous tab is gone, so the reopened tab takes over its token (no "several tabs" flag)
+  await prisma.attempt.update({ where: { id: a.id }, data: { leftAt: null, lastSeenAt: now, ...(from ? { sessionToken: null } : {}) } });
+  if (!from) return null;
+  const away = now.getTime() - from.getTime();
+  if (away < LEFT_PAGE_MS) return null;
+  return { type: "LEFT_PAGE", ...(await recordViolation(a.id, "LEFT_PAGE", away, info)) };
 }
 
 export type IntegrityFlag = "MULTI_SESSION" | "SAME_NETWORK" | "TOO_FAST" | "IDENTICAL";
